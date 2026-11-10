@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=io.github.oosaver.Idle
+Exec=/usr/bin/oosaver daemon
+SystemdService=oosaver.service

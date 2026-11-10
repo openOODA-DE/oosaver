@@ -1,0 +1,103 @@
+// # Daemon Commands - daemon, status, inhibitors, timeout, config, doctor
+//
+// Logline: The daemon-facing verbs: foreground reactor, socket status query, inhibitor list, timeout, config, and self-check.
+// Setup: Requires BindCap, FsCap, FsWriteCap, EnvCap, ProcessCap, TimeCap, and FsReadCap.
+// Beats:
+//   1. Run the foreground reactor or forward one-shot verbs over the control socket.
+//   2. Persist and apply the idle timeout, and report the resolved configuration file.
+//   3. Run the environment self-check and report PASS lines.
+
+import "oostd/core/primitives/str.oo";
+import "oostd/core/primitives/str_extra.oo";
+import "core/shell.oo";
+import "core/daemon/run.oo";
+import "core/daemon/config.oo";
+import "core/daemon/config_file.oo";
+import "core/daemon/reactor.oo";
+import "core/ascii/effects.oo";
+
+fn saver_canonical(name: String) -> String {
+    if name == "ascii" || name == "superfedora" { return name; }
+    if name == "tour" || name == "new" { return "tour"; }
+    let idx: Int = effects_index(name);
+    if idx >= 0 { return effects_name(idx); }
+    return "";
+}
+
+pub fn cmd_set(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, args: List[String]) -> Int {
+    let raw: String = if list_len(args) > 0 { str_trim(list_get(args, 0)) } else { "" };
+    if raw == "" {
+        println("usage: oosaver set <saver_name>");
+        return 1;
+    }
+    let canonical: String = saver_canonical(to_lowercase(raw));
+    if canonical == "" {
+        println("unknown screensaver: " + raw);
+        return 1;
+    }
+    let cfg: ConfigData = config_read_file(fs_r, proc);
+    let next: ConfigData = config_with(cfg, canonical, cfg.idle_timeout_secs);
+    if !config_commit(fs_r, proc, next) {
+        println("error: refusing to overwrite an unreadable config.toml — fix or remove it to continue");
+        return 1;
+    }
+    if ooidle_notify(fs_r, fs, fw, proc, "oosaver", "set " + canonical) {
+        println("Active screensaver set to '" + canonical + "' (via control socket)");
+        return 0;
+    }
+    println("Active screensaver set to '" + canonical + "' (saved to config)");
+    return 0;
+}
+
+pub fn cmd_daemon(
+    fs_r:&FsReadCap,
+    proc:&ProcessCap,
+    bind:&BindCap,
+    fs:&FsCap,
+    fw:&FsWriteCap,
+    time:&TimeCap
+)-> Int {
+    return daemon_reactor(fs_r, proc, bind, fs, fw, time, "oosaver");
+}
+
+pub fn cmd_status(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap) -> Int {
+    return ooidle_query(fs_r, fs, fw, proc, "oosaver", "status");
+}
+
+pub fn cmd_inhibitors(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap) -> Int {
+    return ooidle_query(fs_r, fs, fw, proc, "oosaver", "inhibitors");
+}
+
+// "timeout <seconds>" — persist the threshold, then retune the live daemon.
+pub fn cmd_timeout(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, args: List[String]) -> Int {
+    if list_len(args) > 0 {
+        let mut secs: Int = parse_int_digits(list_get(args, 0));
+        if secs <= 0 {
+            println("Invalid number of seconds for timeout");
+            return 1;
+        }
+        if secs < 30 { secs = 30; }
+        if secs > 7200 { secs = 7200; }
+        let cfg: ConfigData = config_read_file(fs_r, proc);
+        let next: ConfigData = config_with(cfg, cfg.active, secs);
+        if !config_commit(fs_r, proc, next) {
+            println("error: refusing to overwrite an unreadable config.toml — fix or remove it to continue");
+            return 1;
+        }
+        let _ = ooidle_notify(fs_r, fs, fw, proc, "oosaver", "timeout " + secs.to_string());
+        println("Idle timeout set to " + secs.to_string() + "s.");
+        return 0;
+    }
+    println("timeout " + daemon_timeout_s(fs_r, proc).to_string() + "s");
+    return 0;
+}
+
+pub fn cmd_config(fs_r: &FsReadCap, proc: &ProcessCap) -> Int {
+    let path: String = config_dir(fs_r, proc) + "/config.toml";
+    println("Config file: " + path);
+    let body: String = shell_out(proc, "cat " + shell_quote(path) + " 2>/dev/null");
+    if body == "" { println("(No active config.toml on disk; using defaults)"); }
+    else { print(body); }
+    println(daemon_config_summary(fs_r, proc, "oosaver"));
+    return 0;
+}

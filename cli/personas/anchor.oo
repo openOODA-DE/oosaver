@@ -1,0 +1,7 @@
+// # personas Domain Anchor
+//
+// Logline: Re-exports the multi-call persona host pages for the tree.
+// Setup: Pure shim. Imports the persona pages.
+// Beats:
+//   1. Re-export oolock for the tree.
+import "oolock.oo";

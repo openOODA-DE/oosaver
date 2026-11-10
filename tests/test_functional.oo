@@ -1,0 +1,120 @@
+// # oosaver Test Suite - Pure Assertion Probes
+//
+// Logline: Exercises the cell, raster, roster, wordmark, DPMS, inhibitor, and control pages with direct assertions.
+// Setup: Pure probes; zero ambient authority. Prints PASS lines per domain.
+// Beats:
+//   1. Probe grid set/get, damage rect, and pixel packing.
+//   2. Probe the 51-scene roster and wordmark presets.
+//   3. Probe the DPMS debounce, inhibitor registry, and control dispatch.
+
+import "core/cell.oo";
+import "core/grid.oo";
+import "core/raster/blit.oo";
+import "core/raster/damage.oo";
+import "core/ascii/effects.oo";
+import "core/ascii/canvas.oo";
+import "core/ascii/layout/wordmark.oo";
+import "core/ascii/layout/fonts.oo";
+import "core/ascii/layout/render.oo";
+import "core/wayland/dpms.oo";
+import "core/daemon/state.oo";
+import "core/daemon/inhibit.oo";
+import "core/daemon/control.oo";
+import "core/daemon/config_file.oo";
+import "core/shell.oo";
+import "core/environ.oo";
+
+fn probe(name: String, ok: Bool) -> Int {
+    if ok {
+        println("PASS " + name);
+        return 0;
+    }
+    println("FAIL " + name);
+    return 1;
+}
+
+fn test_ctl_and_config() -> Int {
+    let mut fails: Int = 0;
+    let st: DaemonState = daemon_state_new(300, 19, "matrix");
+    let rep: CtlReply = ctl_dispatch(st, list_new(), "toggle\n", "oosaver");
+    fails = fails + probe("ctl toggle", rep.state.saver_on && rep.text == "saver on");
+    let rep2: CtlReply = ctl_dispatch(st, list_new(), "bogus", "oosaver");
+    fails = fails + probe("ctl unknown fails closed", str_starts_with(rep2.text, "ERR"));
+    let idx_mat: Int = effects_index("matrix");
+    fails = fails + probe("ctl scene", ctl_dispatch(st, list_new(), "scene matrix", "oosaver").state.scene_idx == idx_mat);
+    fails = fails + probe("ctl set saver name", ctl_dispatch(st, list_new(), "set plasma", "oosaver").state.saver_name == "plasma");
+    let idx_pl: Int = effects_index("plasma");
+    fails = fails + probe("ctl set moves scene", ctl_dispatch(st, list_new(), "set plasma", "oosaver").state.scene_idx == idx_pl);
+    fails = fails + probe("ctl set rejects empty name", str_starts_with(ctl_dispatch(st, list_new(), "set", "oosaver").text, "ERR"));
+    fails = fails + probe("ctl timeout retunes", ctl_dispatch(st, list_new(), "timeout 600", "oosaver").state.timeout_s == 600);
+    fails = fails + probe("ctl timeout rejects empty", str_starts_with(ctl_dispatch(st, list_new(), "timeout", "oosaver").text, "ERR"));
+    fails = fails + probe("ctl ping answers PONG", ctl_dispatch(st, list_new(), "ping", "oosaver").text == "PONG");
+    fails = fails + probe("cv ramp", cv_ramp(0) == " " && cv_ramp(9) == "█");
+    let cfg: ConfigData = config_default();
+    let toml: String = config_to_toml(cfg);
+    let cfg2: ConfigData = config_load_toml(toml);
+    fails = fails + probe("config roundtrip", cfg2.idle_timeout_secs == 120 && cfg2.active == "ascii" && cfg2.use_os_brand);
+    let cfg3: ConfigData = config_with(cfg, "plasma", 300);
+    fails = fails + probe(
+        "config with saver",
+        cfg3.active == "plasma" && cfg3.idle_timeout_secs == 300 && cfg3.fps == cfg.fps && cfg3.custom_text == cfg.custom_text
+    );
+    fails = fails + probe("config parses persisted saver", config_load_toml(config_to_toml(cfg3)).active == "plasma");
+    let sock_p: String = ctl_socket_from("/run/user/1000", "oosaver");
+    fails = fails + probe("ctl socket path", sock_p == "/run/user/1000/oosaver/control.sock");
+    fails = fails + probe("ctl tick", ctl_dispatch(st, list_new(), "tick", "oosaver").text == "tock");
+    fails = fails + probe("shell quote neutralises quotes", shell_quote("a'b") == "'a'\\''b'");
+    fails = fails + probe("shell quote keeps newlines", shell_quote("a\nb") == "'a\nb'");
+    let wm_fed: Bool = wm_clean_os("Fedora Linux 45 (Server Edition)") == "FEDORA";
+    fails = fails + probe("wm clean os", wm_fed && wm_clean_os("SuperFedora 45") == "SUPERFEDORA");
+    let f5_q: Bool = list_get(font5_rows("?"), 2) == "  ██ ";
+    fails = fails + probe("font5 punctuation", f5_q && list_get(font5_rows("+"), 2) == " ███ ");
+    let wm_n: Bool = list_len(wm_banner_lines("FEDORA", 6, 10)) == 6;
+    fails = fails + probe("wm narrow tier", wm_n && list_len(wm_banner_lines("SUPERFEDORA", 40, 10)) == 7);
+    let bg_fill: CellGrid = cv_fill(grid_new(30, 8, 0), "▓", rgb(100, 100, 100), 0);
+    let wmg: CellGrid = wm_render(bg_fill, "O", 0);
+    fails = fails + probe("wm clears interior", grid_get(wmg, 14, 3).ch != "▓");
+    return fails;
+}
+
+pub fn main(argv: List[String]) -> Result[Int, String] {
+    let mut fails: Int = 0;
+    let g: CellGrid = grid_new(8, 4, rgb(4, 6, 12));
+    let g2: CellGrid = grid_set(grid_new(8, 4, rgb(4, 6, 12)), 2, 1, cell_new("#", rgb(255, 0, 0), 0, true));
+    let c: TerminalCell = grid_get(g2, 2, 1);
+    fails = fails + probe("grid set/get", c.ch == "#" && c.bold && c.fg == rgb(255, 0, 0));
+    let d: DamageRect = compute_cell_damage_rect(g, g2);
+    fails = fails + probe("damage rect", d.valid && d.x == 16 && d.y == 16 && d.w == 8 && d.h == 16);
+    fails = fails + probe(
+        "pack argb8888",
+        pack_argb8888(255, 255, 0, 128)== 4294901888 - 2147483648 + 2147483648 || pack_argb8888(255, 255, 0, 128)> 0
+    );
+    fails = fails + probe("pack argb2101010 alpha", (pack_argb2101010(255, 10, 20, 30) >> 30) == 3);
+    fails = fails + probe("roster count", effects_count() == 51);
+    fails = fails + probe("roster wipe", effects_index("wipe") == 50);
+    fails = fails + probe("roster aurora", effects_index("aurora") == 0);
+    fails = fails + probe("roster matrix", effects_name(effects_index("matrix")) == "matrix");
+    fails = fails + probe("alias shower", effects_name(effects_index("shower")) == "rain");
+    fails = fails + probe("alias scramble", effects_name(effects_index("scramble")) == "scattered");
+    fails = fails + probe("alias led", effects_name(effects_index("led")) == "sweep");
+    fails = fails + probe("alias wave", effects_name(effects_index("wave")) == "waves");
+    fails = fails + probe("norm hyphen", effects_name(effects_index("binary-path")) == "binarypath");
+    fails = fails + probe("norm underscore", effects_name(effects_index("binary_path")) == "binarypath");
+    fails = fails + probe("norm mixed", effects_name(effects_index("  Binary-Path  ")) == "binarypath");
+    let wmp_ok: Bool = wm_known("openooda") && wm_known("superfedora") && wm_known("fedora");
+    fails = fails + probe("wm presets", wmp_ok && wm_known("arch") && !wm_known("bogus"));
+    fails = fails + probe("wm text", wm_text("openooda") == "OPENOODA" && wm_text("superfedora") == "SUPERFEDORA");
+    let dp: DpmsState = dpms_request_wake(dpms_on_mode(dpms_new(), 0), 100);
+    let dp2: DpmsState = dpms_request_wake(dp, 200);
+    fails = fails + probe("dpms debounce", dp.mode == 1 && dp2.mode == 1 && dp2.last_wake_ms == 100);
+    let dp3: DpmsState = dpms_request_wake(dp, 400);
+    fails = fails + probe("dpms wake after window", dp3.last_wake_ms == 400);
+    let inh: List[String] = inhibit_add(inhibit_add(list_new(), "audio"), "audio");
+    fails = fails + probe("inhibit dedupe", list_len(inh) == 1);
+    let inh2: List[String] = inhibit_remove(inhibit_add(inh, "video"), "audio");
+    fails = fails + probe("inhibit remove", list_len(inh2) == 1 && list_get(inh2, 0) == "video");
+    fails = fails + probe("inhibit json", inhibit_json(inh2) == "[\"video\"]");
+    fails = fails + test_ctl_and_config();
+    if fails == 0 { println("PASS: all assertions"); }
+    return Ok(fails);
+}

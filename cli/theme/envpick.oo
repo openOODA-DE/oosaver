@@ -1,0 +1,20 @@
+// # ootheme Env Theme Picker
+//
+// Logline: Resolve the effective theme name from NO_COLOR and OODA_THEME under an EnvCap.
+// Setup: EnvCap reads NO_COLOR/OODA_* keys via env_get; operand wins over env; unknown env names fall back.
+// Beats:
+//   1. NO_COLOR presence forces the no-color palette unconditionally.
+//   2. An explicit operand always wins over OODA_THEME.
+//   3. OODA_THEME is honored only when it names a palette the engine knows.
+
+import "cli/theme/ootheme.oo";
+import "oostd/fs/process/env.oo";
+
+pub fn ootheme_env_pick(env: &EnvCap, operand: String) -> String {
+    let nc: Result[String, String] = env_get(env, "NO_COLOR");
+    if nc.is_ok() { return "no-color"; }
+    if operand != "" { return operand; }
+    let et: Result[String, String] = env_get(env, "OODA_THEME");
+    if et.is_ok() && ootheme_known(et.val) { return et.val; }
+    return "";
+}

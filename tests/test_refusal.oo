@@ -1,0 +1,113 @@
+// # oosaver Refusal Suite - Negative-Trust Probes
+//
+// Logline: Exercises fail-closed boundaries: control verbs, scene names, config parsing, theme canon, and shell quoting.
+// Setup: Pure probes; zero ambient authority. Every malformed input must produce an ERR reply or a safe fallback.
+// Beats:
+//   1. Refuse unknown verbs, retired scenes, traversal, and metacharacter frames.
+//   2. Refuse malformed config and unknown theme tokens with canonical fallbacks.
+//   3. Prove shell_quote escapes hostile arguments.
+// Fixture: refusal-probe inputs — deliberate traversal/metacharacter strings.
+
+import "core/ascii/effects.oo";
+import "core/daemon/state.oo";
+import "core/daemon/control.oo";
+import "core/daemon/config_file.oo";
+import "core/shell.oo";
+import "cli/theme/ootheme.oo";
+import "cli/theme/token_names.oo";
+import "cli/about/theme.oo";
+import "core/net/oorgb.oo";
+
+fn probe(name: String, ok: Bool) -> Int {
+    if ok {
+        println("PASS " + name);
+        return 0;
+    }
+    println("FAIL " + name);
+    return 1;
+}
+
+fn refuse_frame(st: DaemonState, frame: String) -> Bool {
+    return str_starts_with(ctl_dispatch(st, list_new(), frame, "oosaver").text, "ERR");
+}
+
+fn refuse_ctl() -> Int {
+    let st: DaemonState = daemon_state_new(300, 0, "ascii");
+    let mut f: Int = 0;
+    f = f + probe("unknown verb refuses", refuse_frame(st, "bogus"));
+    f = f + probe("empty set refuses", refuse_frame(st, "set"));
+    f = f + probe("empty timeout refuses", refuse_frame(st, "timeout"));
+    f = f + probe("negative timeout refuses", refuse_frame(st, "timeout -9"));
+    f = f + probe("non-numeric timeout refuses", refuse_frame(st, "timeout zzz"));
+    f = f + probe("empty inhibit refuses", refuse_frame(st, "inhibit"));
+    f = f + probe("retired scene mmx refuses", refuse_frame(st, "scene mmx"));
+    f = f + probe("retired scene zero refuses", refuse_frame(st, "scene zero"));
+    return f;
+}
+
+fn refuse_names() -> Int {
+    let st: DaemonState = daemon_state_new(300, 0, "ascii");
+    let mut f: Int = 0;
+    f = f + probe("traversal scene refuses", refuse_frame(st, "scene " + ".." + "/" + ".." + "/etc/passwd"));
+    f = f + probe("metachar scene refuses", refuse_frame(st, "scene foo; rm -rf /"));
+    f = f + probe("unknown scene refuses", refuse_frame(st, "scene nonexistent-zzz"));
+    f = f + probe("mmx not in roster", effects_index("mmx") < 0);
+    f = f + probe("zero not in roster", effects_index("zero") < 0);
+    f = f + probe("traversal not in roster", effects_index(".." + "/" + ".." + "/" + ".." + "/") < 0);
+    f = f + probe("roster is 51", effects_count() == 51);
+    let mut big: String = "scene ";
+    let mut i: Int = 0;
+    while i < 4096 {
+        big = big + "x";
+        i = i + 1;
+    }
+    f = f + probe("4KiB frame refuses", refuse_frame(st, big));
+    return f;
+}
+
+fn refuse_config() -> Int {
+    let mut f: Int = 0;
+    let g: ConfigData = config_load_toml("bogus !!! [[[ not toml\nkey with no equals\ntimeout_s = zzz\n");
+    f = f + probe("garbage toml keeps idle default", g.idle_enabled);
+    f = f + probe("garbage toml keeps timeout default", g.idle_timeout_secs == 120);
+    f = f + probe("garbage toml keeps a roster scene", effects_index(g.active) >= 0
+        || g.active == "ascii" || g.active == "superfedora");
+    return f;
+}
+
+fn refuse_theme() -> Int {
+    let mut f: Int = 0;
+    f = f + probe("traversal theme falls back", oosaver_ootheme_canonical(".." + "/.." + "/evil") == "ooda-dark");
+    f = f + probe("unknown theme falls back", oosaver_ootheme_canonical("bogus-zzz") == "ooda-dark");
+    f = f + probe("empty theme is ooda-dark", oosaver_ootheme_canonical("") == "ooda-dark");
+    f = f + probe("1982 is canonical", oosaver_ootheme_canonical("1982") == "1982");
+    f = f + probe("bogus preset unknown", !ootheme_known("bogus-zzz"));
+    f = f + probe("resolved palette verifies", ootheme_verify(ootheme_resolve("1982")));
+    f = f + probe("bogus token invalid", !is_valid_token("bogus_token_zzz"));
+    f = f + probe("accent hex is #RRGGBB", chars_len(oorgb_accent_hex(ootheme_resolve("1982"))) == 7);
+    return f;
+}
+
+fn refuse_shell() -> Int {
+    let mut f: Int = 0;
+    let hostile: String = "x; rm -rf / # `id` $(cat /etc/passwd)";
+    let q: String = shell_quote(hostile);
+    f = f + probe("shell_quote wraps hostile arg", str_starts_with(q, "'") && str_ends_with(q, "'"));
+    f = f + probe("shell_quote escapes inner quote", str_contains(shell_quote("it's"), "'\\''"));
+    return f;
+}
+
+pub fn main(argv: List[String]) -> Result[Int, String] {
+    let mut fails: Int = 0;
+    fails = fails + refuse_ctl();
+    fails = fails + refuse_names();
+    fails = fails + refuse_config();
+    fails = fails + refuse_theme();
+    fails = fails + refuse_shell();
+    if fails == 0 {
+        println("ALL REFUSAL PROBES PASSED");
+        return Ok(0);
+    }
+    println(fails.to_string() + " refusal probe(s) failed");
+    return Ok(1);
+}

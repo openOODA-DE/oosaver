@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Oosaver Daemon
+Comment=Oosaver screensaver daemon
+Exec=oosaver daemon
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+X-GNOME-HiddenUnderSystemd=true
+X-systemd-skip=true
+Categories=Utility;Screensaver;

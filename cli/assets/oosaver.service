@@ -1,0 +1,45 @@
+[Unit]
+Description=Oosaver screensaver daemon
+Documentation=https://github.com/oosaver/oosaver
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Slice=background-graphical.slice
+SyslogIdentifier=oosaver
+StandardOutput=journal
+StandardError=journal
+ExecStartPre=-/usr/bin/mkdir -p %h/.config/oosaver
+ExecStart=/usr/bin/oosaver daemon
+Environment=OODA_FS_READDIR=%h:/etc:/run/user/%U
+Environment=OODA_FS_WRITEDIR=%h/.config/oosaver:/run/user/%U
+Environment=OO_HOME=%h
+Environment=OO_XDG_CONFIG_HOME=%h/.config
+Environment=OO_XDG_RUNTIME_DIR=/run/user/%U
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+KillMode=mixed
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=%t -%h/.config -%h/.config/oosaver -%h/.config/idle -%h/.local/state -%h/.local/state/oosaver -%h/.cache -%h/.cache/oosaver
+PrivateTmp=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressAllow=localhost 127.0.0.1
+IPAddressDeny=any
+MemoryMax=512M
+TasksMax=128
+ProtectControlGroups=strict
+SystemCallFilter=@system-service
+RestrictNamespaces=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=graphical-session.target
+

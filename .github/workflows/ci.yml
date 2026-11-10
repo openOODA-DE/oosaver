@@ -1,0 +1,29 @@
+name: ci
+on:
+  workflow_dispatch:
+jobs:
+  verify:
+    name: Fleet gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare openOODA toolchain when not on self-hosted runner
+        run: |
+          if [ ! -x /Projects/openOODA-core/oodac/bin/oodac ]; then
+            sudo mkdir -p /Projects/openOODA-core && sudo chown -R "$(id -u):$(id -g)" /Projects
+            git clone --depth=1 https://github.com/openOODA-core/oodac.git /Projects/openOODA-core/oodac
+            git clone --depth=1 https://github.com/openOODA-core/oodar.git /Projects/openOODA-core/oodar
+            git clone --depth=1 https://github.com/openOODA-core/std.git /Projects/openOODA-core/std
+          fi
+      - name: Static governance gates and compiler verification
+        env:
+          OODA_COMPILER: /Projects/openOODA-core/oodac/bin/oodac
+          OODA_NO_JAIL: "1"
+          OODA_FS_READDIR: /Projects
+          OODA_FS_WRITEDIR: /Projects:/tmp
+        run: |
+          if [ -x "${OODA_COMPILER}" ]; then
+            make build verify test det
+          else
+            make line-cap file-law academy density vocab
+          fi

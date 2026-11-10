@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Oosaver
+#
+# Oosaver Wayland screensaver daemon — dinit service.
+#
+# Install as the desktop user (dinit user services live in ~/.config/dinit.d):
+#
+#   mkdir -p ~/.config/dinit.d
+#   cp /usr/share/oosaver/services/oosaver.dinit ~/.config/dinit.d/oosaver
+#
+# Then add the service to a target, e.g. in ~/.config/dinit.d/login-session.target:
+#
+#   includescript ~/.config/dinit.d/oosaver
+
+type = process
+command = /usr/bin/oosaver daemon
+restart = true
+restart-delay = 5
+depends-on = login-session.target

@@ -1,0 +1,45 @@
+// # oosaver oorgb Bridge - RGB Sync Hook
+//
+// Logline: Best-effort RGB accent sync through the canonical oorgb binary,
+//   gated behind the --rgb flag or OODA_RGB=1; always fail-soft so headless
+//   and CI runs are unaffected.
+// Setup: Consumes &FsReadCap/&ProcessCap via host_env and shell_out. Never required for correctness.
+// Beats:
+//   1. Resolve enablement from flag or environment.
+//   2. Probe for the oorgb binary on PATH.
+//   3. Issue `oorgb set accent` with the resolved palette accent; ignore failures.
+
+import "cli/theme/ootheme.oo";
+import "core/environ.oo";
+import "core/shell.oo";
+import "oostd/core/primitives/str.oo";
+
+fn rgb_hex_nibble(v: Int) -> String {
+    if v < 10 { return chr(48 + v); }
+    return chr(87 + v);
+}
+
+fn rgb_hex_byte(v: Int) -> String {
+    return rgb_hex_nibble(v / 16) + rgb_hex_nibble(v % 16);
+}
+
+pub fn oorgb_enabled(fs_r: &FsReadCap, proc: &ProcessCap, flag: Bool) -> Bool {
+    if flag { return true; }
+    return host_env(fs_r, proc, "OODA_RGB") == "1";
+}
+
+// RGBA32 packs R in bits 31..24, G in 23..16, B in 15..8, A in 7..0.
+pub fn oorgb_accent_hex(p: OoThemePalette) -> String {
+    let v: Int = p.accent_rgba;
+    return "#" + rgb_hex_byte(v / 16777216)
+        + rgb_hex_byte((v / 65536) % 256)
+        + rgb_hex_byte((v / 256) % 256);
+}
+
+pub fn oorgb_sync(fs_r: &FsReadCap, proc: &ProcessCap, flag: Bool, p: OoThemePalette) -> Int {
+    if !oorgb_enabled(fs_r, proc, flag) { return 0; }
+    if shell_out(proc, "command -v oorgb 2>/dev/null") == "" { return 0; }
+    let ok: String = shell_out(proc, "oorgb set accent " + oorgb_accent_hex(p) + " 2>/dev/null && echo ok");
+    if ok == "" { return 0; }
+    return 0;
+}

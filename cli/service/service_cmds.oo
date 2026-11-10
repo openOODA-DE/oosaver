@@ -1,0 +1,124 @@
+// # Service Commands - Service Management and Daemon Control
+//
+// Logline: Real service management verbs and daemon socket control commands across the supported init systems.
+// Setup: Requires ProcessCap for systemctl and unit installation, FsCap/FsWriteCap and EnvCap for daemon socket control.
+// Beats:
+//   1. Forward interactive control frames to the daemon socket.
+//   2. Install, enable, disable, restart, and toggle the service on systemd, dinit, or XDG autostart.
+//   3. Cleanly remove unit configuration on uninstall with zero residual symlinks.
+
+import "oostd/core/primitives/str.oo";
+import "core/shell.oo";
+import "core/daemon/run.oo";
+import "core/daemon/config.oo";
+import "daemon_cmds.oo";
+import "cli/service/service_unit.oo";
+
+pub fn cmd_saver_ctl(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, verb: String) -> Int {
+    return ooidle_query(fs_r, fs, fw, proc, "oosaver", verb);
+}
+
+// The service counts as active when systemd reports it or the daemon answers.
+pub fn service_is_active(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap) -> Bool {
+    if shell_out(proc, "systemctl --user is-active --quiet oosaver.service 2>/dev/null && echo yes") != "" { return true; }
+    if service_has_systemd(proc) { return false; }
+    return ooidle_notify(fs_r, fs, fw, proc, "oosaver", "ping");
+}
+
+pub fn service_enable(fs_r: &FsReadCap, proc: &ProcessCap) -> Int {
+    let unit: String = service_unit_dir(fs_r, proc) + "/oosaver.service";
+    if shell_out(proc, "test -f " + shell_quote(unit) + " 2>/dev/null && echo yes") == "" {
+        let inst: Int = service_install(fs_r, proc);
+        if inst != 0 { return inst; }
+    }
+    if service_has_systemd(proc) {
+        let _r: String = shell_out(proc, "systemctl --user daemon-reload 2>/dev/null || true");
+        if shell_out(proc, "systemctl --user enable --now oosaver.service 2>/dev/null && echo ok") == "" {
+            println("Error: systemctl failed to enable oosaver.service.");
+            return 1;
+        }
+        println("Oosaver service enabled and started.");
+        return 0;
+    }
+    if shell_out(proc, "dinitctl enable oosaver 2>/dev/null && echo ok") != "" {
+        println("Oosaver service enabled via dinit.");
+        return 0;
+    }
+    println("Oosaver autostart entry installed; starts at next login.");
+    return 0;
+}
+
+pub fn service_disable(fs_r: &FsReadCap, proc: &ProcessCap) -> Int {
+    if service_has_systemd(proc) {
+        if shell_out(proc, "systemctl --user disable --now oosaver.service 2>/dev/null && echo ok") == "" {
+            println("Error: systemctl failed to disable oosaver.service.");
+            return 1;
+        }
+        println("Oosaver service disabled and stopped.");
+        return 0;
+    }
+    let _i: String = shell_out(proc, "dinitctl disable oosaver 2>/dev/null || true");
+    let desk: String = service_autostart_dir(fs_r, proc) + "/oosaver.desktop";
+    if shell_out(proc, "rm -f " + shell_quote(desk) + " 2>/dev/null && echo ok") == "" {
+        println("Error: failed to remove the autostart entry.");
+        return 1;
+    }
+    println("Oosaver service disabled and stopped.");
+    return 0;
+}
+
+pub fn service_restart(fs_r: &FsReadCap, proc: &ProcessCap) -> Int {
+    if service_has_systemd(proc) {
+        let _r: String = shell_out(proc, "systemctl --user daemon-reload 2>/dev/null || true");
+        if shell_out(proc, "systemctl --user restart oosaver.service 2>/dev/null && echo ok") == "" {
+            println("Error: systemctl failed to restart oosaver.service.");
+            return 1;
+        }
+        println("Oosaver service restarted.");
+        return 0;
+    }
+    if shell_out(proc, "dinitctl restart oosaver 2>/dev/null && echo ok") != "" {
+        println("Oosaver service restarted via dinit.");
+        return 0;
+    }
+    println("Error: no systemd user manager or dinit to restart.");
+    return 1;
+}
+
+pub fn service_uninstall(fs_r: &FsReadCap, proc: &ProcessCap) -> Int {
+    let dd: Int = service_disable(fs_r, proc);
+    if dd != 0 { return dd; }
+    let unit: String = service_unit_dir(fs_r, proc) + "/oosaver.service";
+    if shell_out(proc, "rm -f " + shell_quote(unit) + " 2>/dev/null && echo ok") == "" {
+        println("Error: failed to remove the systemd user unit.");
+        return 1;
+    }
+    let _rl: String = shell_out(proc, "systemctl --user daemon-reload 2>/dev/null || true");
+    println("Oosaver service uninstalled.");
+    return 0;
+}
+
+pub fn cmd_service(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, verb: String) -> Int {
+    if verb == "install" { return service_install(fs_r, proc); }
+    if verb == "enable" || verb == "start" { return service_enable(fs_r, proc); }
+    if verb == "disable" || verb == "stop" { return service_disable(fs_r, proc); }
+    if verb == "restart" || verb == "reload" { return service_restart(fs_r, proc); }
+    if verb == "status" { return cmd_status(fs_r, fs, fw, proc); }
+    if verb == "toggle" {
+        if service_is_active(fs_r, fs, fw, proc) {
+            if service_disable(fs_r, proc) != 0 { return 1; }
+            println("Oosaver standby: Service disabled (stay-awake ON)");
+        } else {
+            if service_enable(fs_r, proc) != 0 { return 1; }
+            println("Oosaver standby: Service enabled (idle monitoring ACTIVE)");
+        }
+        return 0;
+    }
+    if verb == "uninstall" { return service_uninstall(fs_r, proc); }
+    if verb == "service" {
+        println("usage: oosaver service <install|enable|disable|restart|reload|toggle|status|uninstall>");
+        return 0;
+    }
+    println("unknown service verb " + verb);
+    return 1;
+}

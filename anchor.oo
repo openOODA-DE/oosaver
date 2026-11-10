@@ -1,0 +1,15 @@
+// # oosaver Root Project Anchor
+//
+// Logline: oosaver root module anchor re-exporting every subsystem domain page.
+// Setup: Root module anchor. Pure shim.
+// Beats:
+//   1. Re-export the core, raster, ascii, wayland, daemon, tui, and cli anchors.
+//   2. Keep the public entry surface minimal and deterministic.
+
+import "core/anchor.oo";
+import "core/raster/anchor.oo";
+import "core/ascii/anchor.oo";
+import "core/wayland/anchor.oo";
+import "core/daemon/anchor.oo";
+import "cli/tui/anchor.oo";
+import "cli/anchor.oo";

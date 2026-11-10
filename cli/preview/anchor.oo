@@ -1,0 +1,7 @@
+// # preview Domain Anchor
+//
+// Logline: Re-exports the headless scene-preview command pages.
+// Setup: Pure shim. Imports the preview pages.
+// Beats:
+//   1. Re-export cmds for the tree.
+import "cmds.oo";

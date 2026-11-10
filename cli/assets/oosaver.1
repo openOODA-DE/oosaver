@@ -1,0 +1,53 @@
+.TH OOSAVER 1 "November 2026" "oosaver 5.0.3" "User Commands"
+.SH NAME
+oosaver \- Oosaver standalone screensaver and idle management suite
+.SH SYNOPSIS
+.B oosaver
+[\fISUBCOMMAND\fR] [\fIOPTIONS\fR]
+.br
+.B oosaver-daemon
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+\fBoosaver\fR is a unified idle management and screensaver suite for Linux Wayland sessions.
+It features a zero-CPU event-driven daemon and a built-in 16-bit arcade screensaver engine with 53 visual and mathematical scenes.
+.SH SUBCOMMANDS
+.TP
+.B daemon
+Start the Oosaver background daemon.
+.TP
+.B status [\-\-json]
+Query daemon state, active inhibitors, and current display status.
+.TP
+.B preview [\fISAVER\fR] [\-\-tour]
+Preview a screensaver scene immediately in fullscreen or terminal (\fB\-\-terminal\fR), with interactive Left/Right scene stepping.
+.TP
+.B list [\-\-json]
+List all 53 built-in screensaver scenes.
+.TP
+.B set \fISAVER\fR
+Set the default screensaver in configuration.
+.TP
+.B text [\fITEXT\fR | \-\-clear]
+Set or clear custom banner text for the 16-bit arcade screensaver.
+.TP
+.B start
+Activate the configured screensaver immediately.
+.TP
+.B stop
+Deactivate the currently running screensaver.
+.TP
+.B inhibit [\fIOPTIONS\fR] [\-\- \fICOMMAND\fR...]
+Inhibit screensaver activation while a task executes.
+.TP
+.B inhibitors [\-\-json]
+Inspect active idle inhibitors holding back screensaver activation.
+.TP
+.B service install [\-\-init \fISYSTEM\fR]
+Generate and install a user-level service definition for systemd, OpenRC, runit, s6, dinit, or XDG autostart.
+.TP
+.B doctor [\-\-verbose] [\-\-json] [\-\-fix]
+Perform system diagnostics, Wayland checks, and optional auto-remediation (\fB\-\-fix\fR).
+.SH CONFIGURATION
+Configuration is stored in \fB~/.config/oosaver/config.toml\fR.
+.SH SEE ALSO
+.BR systemd (1)

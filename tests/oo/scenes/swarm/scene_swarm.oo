@@ -1,0 +1,34 @@
+// # scene_swarm — swarm step + run driver
+//
+// Logline: Bit-exact port of Swarm::step_scene: pop the tail swarm when
+// call_next, activate "0_swarm_area" on its members, detect the member
+// that landed on the next area and retarget the rest at 0.80
+// coordination, then ctx.update + emit.
+// Setup: swarms ride a Groups (pop = drop last bound); cur is the popped
+// member list in pop order. rng.random() draws happen only inside the
+// coordination retarget loop, in member order.
+// Beats:
+//   1. sw_pop pops the last swarm group and activates its members.
+//   2. sw_step runs the retarget scan + update + render.
+//   3. swarm_run loops until swarms and active are both empty.
+
+import "tests/oo/canvas_cells.oo";
+import "tests/oo/grid_cells.oo";
+import "tests/oo/kernel/engine_render.oo";
+import "tests/oo/engapi/input_arena.oo";
+import "tests/oo/engine/rng_xoshiro.oo";
+import "tests/oo/scenes/swarm/sw_tick.oo";
+import "tests/oo/scenes/swarm/sw_build.oo";
+import "tests/digest_run.oo";
+
+pub fn swarm_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
+    let mut s: SwS = sw_build(w_input(info, lines, rng_seed(42)), info);
+    let mut run: DigestRun = digest_run_new();
+    let _ = cells;
+    while list_len(s.swarms.bounds) > 0 || list_len(s.w.active) > 0 {
+        s = sw_step(s, info);
+        let pcs: List[PaintCell] = eng_render(s.w, info.cols, info.rows);
+        run = run_push(run, digest_paint_cells(pcs), pcs);
+    }
+    return run;
+}

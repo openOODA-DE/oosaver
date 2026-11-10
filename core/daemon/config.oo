@@ -1,0 +1,78 @@
+// # Daemon Config - File and Environment Resolution
+//
+// Logline: Resolves the daemon's scene, timeout, banner wordmark, control endpoint, and format from the config file then environment overrides.
+// Setup: Requires EnvCap for XDG_CONFIG_HOME, HOME, and the OOSAVER_* overrides, plus ProcessCap to read config.toml and /etc/os-release.
+// Beats:
+//   1. Read the persistent config.toml from the resolved config dir.
+//   2. Resolve the active OS or custom banner wordmark from env, config.toml, and /etc/os-release.
+//   3. Report the resolved values and the Unix control socket path.
+
+import "oostd/core/primitives/str_extra.oo";
+import "core/shell.oo";
+import "core/environ.oo";
+import "core/ascii/effects.oo";
+import "core/ascii/layout/wordmark.oo";
+import "config_file.oo";
+
+
+// Idle timeout in seconds: the environment override wins, then config.toml.
+pub fn daemon_timeout_s(fs_r: &FsReadCap, proc: &ProcessCap) -> Int {
+    let v: String = self_env(fs_r, "OOSAVER_TIMEOUT_S");
+    let acc: Int = parse_int_digits(v);
+    if acc > 0 { return acc; }
+    let cfg: ConfigData = config_read_file(fs_r, proc);
+    return cfg.idle_timeout_secs;
+}
+
+// Active scene index: the environment override wins, then config.toml.
+pub fn daemon_scene(fs_r: &FsReadCap, proc: &ProcessCap) -> Int {
+    let v: String = self_env(fs_r, "OOSAVER_SCENE");
+    let idx: Int = effects_index(v);
+    if idx >= 0 { return idx; }
+    let cfg: ConfigData = config_read_file(fs_r, proc);
+    let cidx: Int = effects_index(cfg.active);
+    if cidx >= 0 { return cidx; }
+    return 0;
+}
+
+// Active saver name as persisted in config.toml.
+pub fn daemon_saver_name(fs_r: &FsReadCap, proc: &ProcessCap) -> String {
+    let v: String = str_trim(self_env(fs_r, "OOSAVER_SCENE"));
+    if v != "" { return to_lowercase(v); }
+    let cfg: ConfigData = config_read_file(fs_r, proc);
+    return cfg.active;
+}
+
+pub fn daemon_banner_text(fs_r: &FsReadCap, proc: &ProcessCap) -> String {
+    let sf_env: String = str_trim(self_env(fs_r, "SUPERFEDORA"));
+    if sf_env == "1" || to_lowercase(sf_env) == "true" { return "SUPERFEDORA"; }
+    let os_env: String = str_trim(self_env(fs_r, "IDLE_OS_NAME"));
+    if os_env != "" { return wm_clean_os(os_env); }
+    let cfg: ConfigData = config_read_file(fs_r, proc);
+    if cfg.active == "superfedora" { return "SUPERFEDORA"; }
+    if !cfg.use_os_brand && str_trim(cfg.custom_text) != "" {
+        return to_uppercase(str_trim(cfg.custom_text));
+    }
+    let sf_probe: String = shell_out(proc, "(test -e /etc/superfedora/release -o -e /etc/superfedora-release -o -e \"$HOME/.config/superfedora\" || grep -qi superfedora /etc/os-release 2>/dev/null) && echo yes");
+    if sf_probe == "yes" { return "SUPERFEDORA"; }
+    let raw_os: String = shell_out(proc, "grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
+    if raw_os != "" { return wm_clean_os(raw_os); }
+    let un: String = shell_out(proc, "uname -s 2>/dev/null");
+    if un != "" { return wm_clean_os(un); }
+    return "FEDORA";
+}
+
+pub fn daemon_format(fs_r: &FsReadCap) -> String {
+    let v: String = self_env(fs_r, "OOSAVER_FORMAT");
+    if v == "argb2101010" { return v; }
+    return "argb8888";
+}
+
+pub fn daemon_config_summary(fs_r: &FsReadCap, proc: &ProcessCap, prog: String) -> String {
+    return prog + " ctl=" + ctl_socket_path(fs_r, proc, prog) +
+        " timeout=" + daemon_timeout_s(fs_r, proc).to_string() + "s saver=" +
+        daemon_saver_name(fs_r, proc) + " scene=" +
+        effects_name(daemon_scene(fs_r, proc)) + " banner=" +
+        daemon_banner_text(fs_r, proc) + " format=" + daemon_format(fs_r) +
+        " config=" + config_dir(fs_r, proc);
+}

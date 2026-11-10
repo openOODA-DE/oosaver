@@ -1,0 +1,88 @@
+// # ootheme Canonical Preset Spec Table
+//
+// Logline: Dark-mode RGBA and ANSI-256 indices for the 24 canonical ootheme presets beyond the app fallback set.
+//
+// Setup: Pure integer tables derived from the canonical ootheme preset registry; zero ambient authority.
+// Beats:
+//   1. OoThemeSpec carries one preset: seven RGBA32 colors plus header/success ANSI indices.
+//   2. ootheme_spec resolves a canonical theme name to its spec, empty name when unknown.
+//   3. ootheme_spec_known gates preset names for the resolver and env picker.
+
+type OoThemeSpec = struct {
+    name: String,
+    bg: Int,
+    surf: Int,
+    fg: Int,
+    acc: Int,
+    okc: Int,
+    wrn: Int,
+    errc: Int,
+    hdri: Int,
+    okvi: Int
+};
+
+fn ootheme_spec_a_m(name: String) -> OoThemeSpec {
+    if name == "amber" { return OoThemeSpec { name: "amber", bg: 370215679, surf: 605819647, fg: 4277389311,
+            acc: 4120775679, okc: 2227967743, wrn: 4120775679, errc: 4014228735, hdri: 33, okvi: 32 }; }
+    if name == "amethyst" { return OoThemeSpec { name: "amethyst", bg: 302914815, surf: 471280639, fg: 3991337215,
+            acc: 3095134207, okc: 1860679679, wrn: 4241706495, errc: 4101158655, hdri: 35, okvi: 32 }; }
+    if name == "bloom" { return OoThemeSpec { name: "bloom", bg: 386864383, surf: 605561087, fg: 4243059711,
+            acc: 4101158655, okc: 2263854335, wrn: 4259334143, errc: 4218521087, hdri: 35, okvi: 32 }; }
+    if name == "cyberpunk" { return OoThemeSpec { name: "cyberpunk", bg: 252451839, surf: 437595903, fg: 16777215,
+            acc: 16777215, okc: 16738047, wrn: 4293263615, errc: 4278212095, hdri: 36, okvi: 32 }; }
+    if name == "dracula" { return OoThemeSpec { name: "dracula", bg: 673855231, surf: 876037887, fg: 4177064703,
+            acc: 3180591615, okc: 1358593023, wrn: 4059729151, errc: 4283782655, hdri: 35, okvi: 32 }; }
+    if name == "ember" { return OoThemeSpec { name: "ember", bg: 386730239, surf: 622268671, fg: 4293776895,
+            acc: 4220665087, okc: 1256095999, wrn: 4223608063, errc: 4168184319, hdri: 33, okvi: 32 }; }
+    if name == "equinox" { return OoThemeSpec { name: "equinox", bg: 269753855, surf: 455093759, fg: 3941595391,
+            acc: 3803398399, okc: 1322820607, wrn: 3803398399, errc: 4168184319, hdri: 33, okvi: 32 }; }
+    if name == "frost" { return OoThemeSpec { name: "frost", bg: 185604095, surf: 320546047, fg: 3908171263,
+            acc: 1926756095, okc: 1322820607, wrn: 4241706495, errc: 4168184319, hdri: 36, okvi: 32 }; }
+    if name == "harvest" { return OoThemeSpec { name: "harvest", bg: 353306879, surf: 572068095, fg: 4277389311,
+            acc: 3648456447, okc: 2227967743, wrn: 4120775679, errc: 4014228735, hdri: 33, okvi: 32 }; }
+    if name == "hearth" { return OoThemeSpec { name: "hearth", bg: 336464639, surf: 555225855, fg: 4159562495,
+            acc: 3766116351, okc: 2175965951, wrn: 4073492479, errc: 3766116351, hdri: 33, okvi: 32 }; }
+    if name == "lantern" { return OoThemeSpec { name: "lantern", bg: 403179775, surf: 638587135, fg: 4277334783,
+            acc: 4014228735, okc: 886282751, wrn: 4223608063, errc: 4014228735, hdri: 31, okvi: 32 }; }
+    if name == "meadow" { return OoThemeSpec { name: "meadow", bg: 202772479, surf: 354687743, fg: 3707561983,
+            acc: 1256095999, okc: 1256095999, wrn: 4207678975, errc: 4168184319, hdri: 32, okvi: 32 }; }
+    if name == "minimax" { return OoThemeSpec { name: "minimax", bg: 235802879, surf: 437919231, fg: 3857049087,
+            acc: 3768598783, okc: 2059962623, wrn: 3768598783, errc: 3765461247, hdri: 33, okvi: 32 }; }
+    if name == "mirage" { return OoThemeSpec { name: "mirage", bg: 403770879, surf: 639375103, fg: 4293776895,
+            acc: 768917503, okc: 1256095999, wrn: 4220665087, errc: 4168184319, hdri: 36, okvi: 32 }; }
+    return OoThemeSpec { name: "", bg: 0, surf: 0, fg: 0, acc: 0, okc: 0, wrn: 0, errc: 0, hdri: -1, okvi: -1 };
+}
+
+fn ootheme_spec_n_z(name: String) -> OoThemeSpec {
+    if name == "nord" { return OoThemeSpec { name: "nord", bg: 775176447, surf: 994202367, fg: 3975148799,
+            acc: 2294337791, okc: 2747174143, wrn: 3955985407, errc: 3210832639, hdri: 36, okvi: 32 }; }
+    if name == "nova" { return OoThemeSpec { name: "nova", bg: 218961151, surf: 404235519, fg: 4177198335,
+            acc: 4259334143, okc: 1256095999, wrn: 4259334143, errc: 4168184319, hdri: 33, okvi: 32 }; }
+    if name == "plain" { return OoThemeSpec { name: "plain", bg: 255, surf: 255, fg: 4294967295,
+            acc: 4294902015, okc: 16711935, wrn: 4294902015, errc: 4278190335, hdri: -1, okvi: -1 }; }
+    if name == "sakura" { return OoThemeSpec { name: "sakura", bg: 403707135, surf: 639246591, fg: 4294046463,
+            acc: 4218521087, okc: 2263854335, wrn: 4259334143, errc: 4218521087, hdri: 31, okvi: 32 }; }
+    if name == "sol" { return OoThemeSpec { name: "sol", bg: 403835135, surf: 639373055, fg: 4277987583,
+            acc: 4120775679, okc: 1256095999, wrn: 4241706495, errc: 4014228735, hdri: 33, okvi: 32 }; }
+    if name == "solitude" { return OoThemeSpec { name: "solitude", bg: 252843775, surf: 421340415, fg: 4059429375,
+            acc: 2493757695, okc: 1592448255, wrn: 4241706495, errc: 4255428607, hdri: 37, okvi: 32 }; }
+    if name == "solstice" { return OoThemeSpec { name: "solstice", bg: 253174527, surf: 438580223, fg: 4177198335,
+            acc: 4223608063, okc: 886282751, wrn: 4223608063, errc: 4168184319, hdri: 33, okvi: 32 }; }
+    if name == "spooky" { return OoThemeSpec { name: "spooky", bg: 252318975, surf: 470951167, fg: 4092133375,
+            acc: 4285989119, okc: 583360255, wrn: 4285989119, errc: 4014228735, hdri: 33, okvi: 32 }; }
+    if name == "thaw" { return OoThemeSpec { name: "thaw", bg: 236196607, surf: 388046591, fg: 3840928511,
+            acc: 1322820607, okc: 886282751, wrn: 4241706495, errc: 4168184319, hdri: 32, okvi: 32 }; }
+    if name == "yule" { return OoThemeSpec { name: "yule", bg: 169086975, surf: 304159231, fg: 3976066559,
+            acc: 4014228735, okc: 886282751, wrn: 4223608063, errc: 4014228735, hdri: 31, okvi: 32 }; }
+    return OoThemeSpec { name: "", bg: 0, surf: 0, fg: 0, acc: 0, okc: 0, wrn: 0, errc: 0, hdri: -1, okvi: -1 };
+}
+
+pub fn ootheme_spec(name: String) -> OoThemeSpec {
+    let sp: OoThemeSpec = ootheme_spec_a_m(name);
+    if sp.name != "" { return sp; }
+    return ootheme_spec_n_z(name);
+}
+
+pub fn ootheme_spec_known(name: String) -> Bool {
+    return ootheme_spec(name).name != "";
+}

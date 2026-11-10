@@ -1,0 +1,10 @@
+name=oosaver
+version=5.0.3
+layer=de
+category=UI
+tags=screensaver,idle,lock,wayland,layer-shell,dpms,ascii,demoscene,multicall,ootheme,oorgb
+upstream=openOODA-DE
+status=shipped
+description=Capability-secured 51-scene 16-bit ASCII screensaver, idle daemon and session-lock engine with multi-call personas (oosaver, idlescreen, ooidle, oolock), wlr-layer-shell presenter, ootheme 25-preset/34-token theming and optional oorgb RGB sync
+caps=FsRead,FsWrite,Fs,Process,Bind,Time,Ffi,Arena,Alloc
+deps=oostd

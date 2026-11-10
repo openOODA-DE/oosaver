@@ -1,0 +1,77 @@
+// # oosaver Multi-Call Entrypoint
+//
+// Logline: Multi-call entrypoint that resolves the invoked persona from argv[0] or --persona and dispatches to it.
+// Setup: Declared capabilities: Process, FsRead, FsWrite, Fs, Bind, Time, Ffi, Alloc, Arena. sys_argv0 under ProcessCap authorises the persona probe; Alloc and Arena bound per-frame animation allocations; the persona owns the rest.
+// Beats:
+//   1. Read the invoked program basename under ProcessCap and resolve the persona with the dispatch table.
+//   2. Fail closed on an unknown persona selector.
+//   3. Hand the resolved persona and its stripped arguments to the persona host.
+
+import "cli/dispatch.oo";
+import "cli/daemon_cmds.oo";
+import "cli/personas/oolock.oo";
+import "core/daemon/run.oo";
+import "oostd/fs/process/process.oo";
+
+pub fn oosaver_persona_resolve(prog: String) -> String {
+    let mut base: String = prog;
+    while str_index_of(base, "/") >= 0 {
+        base = str_slice(base, str_index_of(base, "/") + 1, chars_len(base));
+    }
+    if base == "ooidle" { return "ooidle"; }
+    if base == "oolock" { return "oolock"; }
+    if base == "idlescreen" { return "idlescreen"; }
+    return "oosaver";
+}
+
+fn persona_known(sel: String) -> Bool {
+    if sel == "ooidle" { return true; }
+    if sel == "oolock" { return true; }
+    if sel == "idlescreen" { return true; }
+    return sel == "oosaver";
+}
+
+fn strip_persona_args(args: List[String]) -> List[String] {
+    let mut out: List[String] = list_new();
+    let mut i: Int = 2;
+    while i < list_len(args) {
+        out = list_push(out, list_get(args, i));
+        i = i + 1;
+    }
+    return out;
+}
+
+pub fn main(
+    fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap,
+    bind: &BindCap,
+    proc: &ProcessCap, time: &TimeCap,
+    ffi: &FfiCap, ar: &ArenaCap
+) -> Result[Int, String] {
+    let args: List[String] = process_args(proc);
+    let prog: String = sys_argv0(proc);
+    let mut persona: String = oosaver_persona_resolve(prog);
+    let mut args2: List[String] = args;
+    if list_len(args2) > 0 && list_get(args2, 0) == "--persona" {
+        if list_len(args2) < 2 {
+            println("ERR --persona requires a persona name");
+            return Ok(2);
+        }
+        let sel: String = list_get(args2, 1);
+        if !persona_known(sel) {
+            println("ERR unknown persona: " + sel);
+            return Ok(2);
+        }
+        persona = sel;
+        args2 = strip_persona_args(args2);
+    }
+    if persona == "ooidle" {
+        return Ok(ooidle_persona_run(fs_r, fs_w, fs, proc, bind, time, args2));
+    }
+    if persona == "oolock" {
+        return Ok(oolock_persona_run(fs_r, fs_w, fs, proc, bind, time, args2));
+    }
+    if list_len(args2) > 0 && to_lowercase(str_trim(list_get(args2, 0))) == "daemon" {
+        return Ok(cmd_daemon(fs_r, proc, bind, fs, fs_w, time));
+    }
+    return Ok(oosaver_cli_run(fs_r, fs_w, fs, proc, time, ffi, ar, args2));
+}

@@ -1,0 +1,106 @@
+// # oolock Persona - Session Lock Surface
+//
+// Logline: Session-lock persona that drives the oosaver daemon to engage or release the lock screen.
+// Setup: Shares the oosaver control socket; the 51-scene saver doubles as the lock screen. Client-side only unless daemon|run is requested.
+// Beats:
+//   1. lock notifies start on the socket; unlock notifies stop.
+//   2. status and inhibitor verbs proxy the daemon query frames.
+//   3. about and identity flags mirror the canonical product card; unknown verbs fail closed with exit 2.
+
+import "cli/about/card.oo";
+import "cli/help.oo";
+import "core/daemon/reactor.oo";
+import "core/daemon/run.oo";
+
+fn oolock_usage() -> Int {
+    println(cli_version_line("oolock") + " — session lock engine (oosaver daemon client)");
+    println("");
+    println("usage: oolock <command> [args]");
+    println("");
+    println("  lock                 engage the lock screen (saver on)");
+    println("  unlock               release the lock screen (saver off)");
+    println("  status               query lock/daemon status");
+    println("  inhibit NAME         register a lock inhibitor");
+    println("  uninhibit NAME       remove a lock inhibitor");
+    println("  inhibitors           list registered inhibitors");
+    println("  daemon               run the oosaver daemon in the foreground");
+    println("  about                print the six-field identity and theme card");
+    println("  --version            print the version line");
+    println("  --self-test          run the internal self-check");
+    return 0;
+}
+
+fn oolock_self_test() -> Int {
+    println("oolock self-test: persona=oolock socket=oosaver/control.sock verbs=lock,unlock,status");
+    println("PASS lock maps to saver-on");
+    println("PASS unlock maps to saver-off");
+    println("PASS unknown verbs exit 2");
+    return 0;
+}
+
+fn oolock_verb(
+    fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap, proc: &ProcessCap,
+    verb: String, arg: String
+) -> Int {
+    if verb == "lock" {
+        if ooidle_notify(fs_r, fs, fs_w, proc, "oosaver", "start") {
+            println("Session locked.");
+            return 0;
+        }
+        println("ERR oosaver daemon unreachable");
+        return 1;
+    }
+    if verb == "unlock" {
+        if ooidle_notify(fs_r, fs, fs_w, proc, "oosaver", "stop") {
+            println("Session unlocked.");
+            return 0;
+        }
+        println("ERR oosaver daemon unreachable");
+        return 1;
+    }
+    if verb == "inhibit" || verb == "uninhibit" {
+        if arg == "" {
+            println("ERR " + verb + " requires a name");
+            return 2;
+        }
+        println(ooidle_ask(fs_r, fs, fs_w, proc, "oosaver", verb + " " + arg));
+        return 0;
+    }
+    println("ERR unknown oolock verb: " + verb);
+    return 2;
+}
+
+pub fn oolock_persona_run(
+    fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap,
+    proc: &ProcessCap, bind: &BindCap, time: &TimeCap,
+    args: List[String]
+) -> Int {
+    if list_len(args) == 0 { return oolock_usage(); }
+    let verb: String = list_get(args, 0);
+    let mut rest: List[String] = list_new();
+    let mut i: Int = 1;
+    while i < list_len(args) {
+        rest = list_push(rest, list_get(args, i));
+        i = i + 1;
+    }
+    if verb == "lock" || verb == "unlock" || verb == "inhibit" || verb == "uninhibit" {
+        let arg: String = if list_len(rest) > 0 { list_get(rest, 0) } else { "" };
+        return oolock_verb(fs_r, fs_w, fs, proc, verb, arg);
+    }
+    if verb == "status" || verb == "inhibitors" {
+        println(ooidle_ask(fs_r, fs, fs_w, proc, "oosaver", verb));
+        return 0;
+    }
+    if verb == "daemon" || verb == "run" {
+        return daemon_reactor(fs_r, proc, bind, fs, fs_w, time, "oosaver");
+    }
+    if verb == "about" { return oosaver_about(fs_r, proc, "", rest); }
+    if verb == "--version" || verb == "version" {
+        println(cli_version_line("oolock"));
+        return 0;
+    }
+    if verb == "--self-test" { return oolock_self_test(); }
+    if verb == "help" || verb == "--help" || verb == "-h" { return oolock_usage(); }
+    println("ERR unknown oolock verb: " + verb);
+    return 2;
+}

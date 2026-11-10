@@ -1,0 +1,7 @@
+// # net Domain Anchor
+//
+// Logline: Re-exports the peripheral RGB bridge page for the tree.
+// Setup: Pure shim. Imports the net pages.
+// Beats:
+//   1. Re-export oorgb for the tree.
+import "oorgb.oo";

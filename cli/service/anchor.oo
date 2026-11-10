@@ -1,0 +1,8 @@
+// # service Domain Anchor
+//
+// Logline: Re-exports the systemd service command and unit-emission pages.
+// Setup: Pure shim. Imports the service pages.
+// Beats:
+//   1. Re-export service_cmds and service_unit for the tree.
+import "cli/service/service_cmds.oo";
+import "cli/service/service_unit.oo";

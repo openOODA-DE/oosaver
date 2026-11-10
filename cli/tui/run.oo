@@ -1,0 +1,206 @@
+// # TUI Run - Settings Director Event Loop
+//
+// Logline: Event loop managing terminal raw mode, config persistence, and user navigation for the Settings Director.
+// Setup: Requires ProcessCap for OS detection and config write, EnvCap for config dir, FfiCap for terminal control, and TimeCap for frame timing.
+// Beats:
+//   1. Enter terminal raw mode and alternate screen buffer.
+//   2. Load persistent config and detect system environment.
+//   3. Render animated frame loop and dispatch keystroke actions until exit.
+
+import "model.oo";
+import "view.oo";
+import "input.oo";
+import "core/daemon/config_file.oo";
+import "core/daemon/run.oo";
+import "cli/preview/cmds.oo";
+import "core/shell.oo";
+import "oostd/fs/process/process.oo";
+
+fn tui_link_probe() -> Int {
+    return hot_reload("oosaver-tui-tier");
+}
+
+fn tui_probe_daemon(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap) -> Bool {
+    return ooidle_notify(fs_r, fs, fw, proc, "oosaver", "ping");
+}
+
+fn tui_query_inhibitors(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap) -> String {
+    let rep: String = ooidle_ask(fs_r, fs, fw, proc, "oosaver", "inhibitors");
+    if rep == "" { return "None (Daemon Inactive)"; }
+    if rep == "[]" { return "Uninhibited"; }
+    return rep;
+}
+
+fn tui_detect_os(proc: &ProcessCap) -> String {
+    let s: String = shell_out(proc, "grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
+    if s != "" { return s; }
+    let un: String = shell_out(proc, "uname -s 2>/dev/null");
+    if un != "" { return un; }
+    return "Linux";
+}
+
+fn tui_save_model(fs_r: &FsReadCap, fs: &FsCap, fw: &FsWriteCap, proc: &ProcessCap, m: TuiModel) -> String {
+    let c: ConfigData = ConfigData {
+        idle_enabled: true,
+        idle_timeout_secs: m.idle_timeout_s,
+        dpms_timeout_secs: m.dpms_timeout_s,
+        dwell_secs: m.dwell_s,
+        fps: m.fps_val,
+        active: tui_saver_name(m.selected_saver),
+        custom_text: m.custom_text,
+        use_os_brand: m.use_os_brand
+    };
+    if !config_commit(fs_r, proc, c) { return ""; }
+    let live: Bool = ooidle_notify(fs_r, fs, fw, proc, "oosaver", "set " + c.active);
+    let _t: Bool = ooidle_notify(fs_r, fs, fw, proc, "oosaver", "timeout " + c.idle_timeout_secs.to_string());
+    if live { return "Settings saved to config.toml (daemon updated)"; }
+    return "Settings saved to config.toml";
+}
+
+fn tui_preview_run(
+    fs_r:&FsReadCap,
+    proc:&ProcessCap,
+    ffi:&FfiCap,
+    time:&TimeCap,
+    ar:&ArenaCap,
+    m: TuiModel
+)-> TuiModel {
+    let mut cur: TuiModel = m;
+    let _ = oo_tui_show_cursor(ffi, 1);
+    let _ = oo_tui_alt_screen_leave(ffi);
+    let _ = oo_tui_disable_raw(ffi, "");
+    let wm: String = if cur.selected_saver == 2 {
+        "SUPERFEDORA"
+    } else if !cur.use_os_brand && str_trim(cur.custom_text)!= "" {
+        to_uppercase(str_trim(cur.custom_text))
+    } else {
+        wm_clean_os(cur.detected_os)
+    };
+    let mut pargs: List[String] = list_new();
+    pargs = list_push(pargs, tui_saver_name(cur.selected_saver));
+    pargs = list_push(pargs, "--text");
+    pargs = list_push(pargs, wm);
+    pargs = list_push(pargs, "--timeout");
+    pargs = list_push(pargs, "10");
+    let _ = cmd_preview(fs_r, proc, ffi, time, ar, pargs);
+    let _ = oo_tui_enable_raw(ffi, "");
+    let _ = oo_tui_alt_screen_enter(ffi);
+    let _ = oo_tui_show_cursor(ffi, 0);
+    cur.status_msg = "Preview completed (" + tui_saver_name(cur.selected_saver) + ")";
+    return cur;
+}
+
+type TuiAct = struct {
+    m: TuiModel,
+    b: Int,
+    act: String
+};
+
+fn tui_apply_action(fs_r:&FsReadCap, fs:&FsCap, fw:&FsWriteCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap,
+    ar:&ArenaCap, a: TuiAct)-> TuiModel {
+    let m: TuiModel = a.m;
+    let b: Int = a.b;
+    let act: String = a.act;
+    let mut cur: TuiModel = m;
+    if m.editing_text {
+        return tui_apply_text(m, b, act);
+    }
+    if act == "quit" { cur.running = false; }
+    else if act == "down" { cur = tui_nav_field(cur, 1); }
+    else if act == "up" { cur = tui_nav_field(cur, -1); }
+    else if act == "left" { cur = tui_adjust_field(cur, -1, false); }
+    else if act == "right" { cur = tui_adjust_field(cur, 1, false); }
+    else if act == "fast_left" { cur = tui_adjust_field(cur, -1, true); }
+    else if act == "fast_right" { cur = tui_adjust_field(cur, 1, true); }
+    else if act == "select_mode_1" {
+        cur.use_os_brand = true;
+        cur.dirty = true;
+    }
+    else if act == "select_mode_2" {
+        cur.use_os_brand = false;
+        cur.dirty = true;
+    }
+    else if act == "save" || (act == "enter" && cur.focused == 8) {
+        let msg: String = tui_save_model(fs_r, fs, fw, proc, cur);
+        if msg != "" {
+            cur.dirty = false;
+            cur.status_msg = msg;
+        }
+        else { cur.status_msg = "Error: Failed to save config.toml"; }
+    } else if act == "preview" || act == "fullscreen" || (act == "enter" && (cur.focused == 9 || cur.focused == 10)) {
+        cur = tui_preview_run(fs_r, proc, ffi, time, ar, cur);
+    } else if act == "toggle_daemon" {
+        let _t: Bool = ooidle_notify(fs_r, fs, fw, proc, "oosaver", "toggle");
+        let active_now: Bool = tui_probe_daemon(fs_r, fs, fw, proc);
+        cur.daemon_active = active_now;
+        cur.inhibitor_desc = if active_now { tui_query_inhibitors(fs_r, fs, fw, proc) } else { "None (Daemon Inactive)" };
+        cur.status_msg = if active_now { "Daemon active (monitoring)" } else { "Daemon standby (stay-awake ON)" };
+    } else if act == "space" || act == "enter" {
+        if cur.focused == 1 {
+            cur.use_os_brand = true;
+            cur.dirty = true;
+        }
+        else if cur.focused == 2 {
+            cur.use_os_brand = false;
+            cur.dirty = true;
+        }
+        else if cur.focused == 3 { cur.editing_text = true; }
+        else if cur.focused == 11 { cur.running = false; }
+    }
+    return cur;
+}
+
+pub fn tui_run(fs_r:&FsReadCap, fs:&FsCap, fw:&FsWriteCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap,
+    ar:&ArenaCap)-> Int {
+    let dims: String = match oo_tui_get_size(ffi) { Ok(s) => s, Err(_) => "24:80" };
+    let colon: Int = str_index_of(dims, ":");
+    let mut rows: Int = 24;
+    let mut cols: Int = 80;
+    if colon >= 0 {
+        let ra: Int = parse_int_digits(str_slice(dims, 0, colon));
+        let ca: Int = parse_int_digits(str_slice(dims, colon + 1, chars_len(dims)));
+        if ra > 0 { rows = ra; }
+        if ca > 0 { cols = ca; }
+    }
+    if oo_tui_enable_raw(ffi, "").is_err() {
+        println("tui: raw mode unavailable");
+        return 1;
+    }
+    let _ = oo_tui_alt_screen_enter(ffi);
+    let _ = oo_tui_show_cursor(ffi, 0);
+    let cfg: ConfigData = config_read_file(fs_r, proc);
+    let os_name: String = tui_detect_os(proc);
+    let mut m: TuiModel = tui_model_init(cfg, os_name, cols, rows);
+    let is_up: Bool = tui_probe_daemon(fs_r, fs, fw, proc);
+    m.daemon_active = is_up;
+    m.inhibitor_desc = if is_up { tui_query_inhibitors(fs_r, fs, fw, proc) } else { "None (Daemon Inactive)" };
+    let aid: Int = frame_arena_open(ar);
+    let mut tick: Int = 0;
+    while m.running {
+        let _e: Int = frame_arena_enter(ar, aid);
+        let _ = oo_tui_write(ffi, tui_frame(m, tick));
+        let _l: Int = frame_arena_leave(ar, aid);
+        let s: String = match oo_tui_read_byte_timeout(ffi, "", 50) { Ok(v) => v, Err(_) => "" };
+        let mut b: Int = input_byte_of(s);
+        let mut act: String = input_action(b);
+        if b == 27 {
+            let s2: String = match oo_tui_read_byte_timeout(ffi, "", 10) { Ok(v) => v, Err(_) => "" };
+            let s3: String = if s2 == "[" {
+                match oo_tui_read_byte_timeout(ffi, "", 10){ Ok(v)=> v, Err(_)=> "" }
+            } else {
+                ""
+            };
+            if s3 != "" {
+                act = input_arrow_action(input_byte_of(s3));
+                b = -1;
+            }
+        }
+        m = tui_apply_action(fs_r, fs, fw, proc, ffi, time, ar, TuiAct { m: m, b: b, act: act });
+        tick = tick + 1;
+    }
+    let _c: Int = frame_arena_close(ar, aid);
+    let _ = oo_tui_show_cursor(ffi, 1);
+    let _ = oo_tui_alt_screen_leave(ffi);
+    let _ = oo_tui_disable_raw(ffi, "");
+    return 0;
+}

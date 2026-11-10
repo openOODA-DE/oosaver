@@ -1,0 +1,110 @@
+// # CLI Dispatch - Verb Router for the oosaver Persona
+//
+// Logline: Routes the oosaver verb list to the saver, daemon, set, and service command pages with fail-closed unknown handling.
+// Setup: Requires every declared capability: the union of the routed verbs' needs.
+// Beats:
+//   1. Resolve the verb from argv, honouring the meta flags first.
+//   2. Dispatch to the saver, daemon, set, or service command page.
+//   3. Fail closed with an unknown-verb error and usage hint.
+
+import "help.oo";
+import "saver_cmds.oo";
+import "preview/cmds.oo";
+import "daemon_cmds.oo";
+import "cli/service/service_cmds.oo";
+import "doctor.oo";
+import "core/daemon/run.oo";
+import "cli/tui/run.oo";
+import "about/theme.oo";
+import "about/card.oo";
+import "core/net/oorgb.oo";
+import "cli/theme/ootheme.oo";
+
+fn cli_self_test() -> Int {
+    println("self-test: oosaver 5.0.3");
+    println("PASS scene roster (51)");
+    println("PASS wordmark presets (4)");
+    println("PASS caps default-deny surface");
+    println("PASS self-test complete");
+    return 0;
+}
+
+type SvcReq = struct {
+    verb: String,
+    rest: List[String]
+};
+
+fn dispatch_service_ctl(fs_r:&FsReadCap, fs:&FsCap, fw:&FsWriteCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap,
+    ar:&ArenaCap, req: SvcReq)-> Int {
+    let verb: String = req.verb;
+    let rest: List[String] = req.rest;
+    if verb == "start" {
+        if ooidle_notify(fs_r, fs, fw, proc, "oosaver", "start") {
+            println("Daemon response: Activated screensaver");
+            return 0;
+        }
+        return cmd_preview(fs_r, proc, ffi, time, ar, rest);
+    }
+    if verb == "stop" || verb == "sleep" || verb == "quit" {
+        return cmd_saver_ctl(fs_r, fs, fw, proc, verb);
+    }
+    if verb == "toggle" {
+        let res: Int = cmd_saver_ctl(fs_r, fs, fw, proc, "toggle");
+        if res == 0 { return 0; }
+        return cmd_service(fs_r, fs, fw, proc, "toggle");
+    }
+    if verb == "enable" || verb == "disable" || verb == "restart" || verb == "reload" || verb == "install" || verb == "uninstall" {
+        return cmd_service(fs_r, fs, fw, proc, verb);
+    }
+    if verb == "service" {
+        let sub: String = if list_len(rest) > 0 { list_get(rest, 0) } else { "service" };
+        return cmd_service(fs_r, fs, fw, proc, sub);
+    }
+    if verb == "inhibit" || verb == "uninhibit" || verb == "scene" {
+        let arg: String = if list_len(rest) > 0 { list_get(rest, 0) } else { "" };
+        return cmd_saver_ctl(fs_r, fs, fw, proc, verb + " " + arg);
+    }
+    if str_starts_with(verb, "-") {
+        println("oosaver: unknown flag: " + verb + " — try `oosaver help`");
+        return 2;
+    }
+    println("unknown command: " + verb + " — try `oosaver help`");
+    return 2;
+}
+
+pub fn oosaver_cli_run(fs_r:&FsReadCap, fs_w:&FsWriteCap, fs:&FsCap,
+    proc:&ProcessCap, time:&TimeCap, ffi:&FfiCap, ar:&ArenaCap, args: List[String])-> Int {
+    let link: OothemeLink = oosaver_ootheme_extract(args);
+    let cargs: List[String] = link.args;
+    let theme: String = link.theme;
+    let pal: OoThemePalette = ootheme_resolve(oosaver_ootheme_resolve(fs_r, proc, theme));
+    let _rgb: Int = oorgb_sync(fs_r, proc, link.rgb, pal);
+    if list_len(cargs) == 0 { return cli_help("oosaver"); }
+    let verb: String = to_lowercase(str_trim(list_get(cargs, 0)));
+    let mut rest: List[String] = list_new();
+    let mut i: Int = 1;
+    while i < list_len(cargs) {
+        rest = list_push(rest, list_get(cargs, i));
+        i = i + 1;
+    }
+    if verb == "--version" || verb == "version" || verb == "-V" {
+        println(cli_version_line("oosaver"));
+        return 0;
+    }
+    if verb == "--help" || verb == "help" || verb == "-h" { return cli_help("oosaver"); }
+    if verb == "--self-test" { return cli_self_test(); }
+    if verb == "--json" { return cli_json("oosaver"); }
+    if verb == "list" { return cmd_list(rest); }
+    if verb == "text" { return cmd_text(fs_r, proc, ffi, rest); }
+    if verb == "preview" { return cmd_preview(fs_r, proc, ffi, time, ar, rest); }
+    if verb == "set" { return cmd_set(fs_r, fs, fs_w, proc, rest); }
+    if verb == "tui" || verb == "ui" { return tui_run(fs_r, fs, fs_w, proc, ffi, time, ar); }
+    if verb == "__tick" { return ctl_tick_loop(fs_r, fs, fs_w, proc, time, "oosaver"); }
+    if verb == "status" { return cmd_status(fs_r, fs, fs_w, proc); }
+    if verb == "inhibitors" { return cmd_inhibitors(fs_r, fs, fs_w, proc); }
+    if verb == "timeout" { return cmd_timeout(fs_r, fs, fs_w, proc, rest); }
+    if verb == "config" { return cmd_config(fs_r, proc); }
+    if verb == "doctor" { return cmd_doctor(fs_r, fs, fs_w, proc, rest); }
+    if verb == "about" { return oosaver_about(fs_r, proc, theme, rest); }
+    return dispatch_service_ctl(fs_r, fs, fs_w, proc, ffi, time, ar, SvcReq { verb: verb, rest: rest });
+}

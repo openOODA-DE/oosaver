@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 Oosaver
+#
+# Oosaver Wayland screensaver daemon — OpenRC (user level).
+#
+# Install as the desktop user (never as root; the daemon needs the user's
+# Wayland session bus and XDG_RUNTIME_DIR):
+#
+#   cp /usr/share/oosaver/services/oosaver.openrc \
+#      ~/.local/etc/init.d/oosaver
+#   chmod 0755 ~/.local/etc/init.d/oosaver
+#   rc-update add oosaver default
+#
+# supervise-daemon owns the child PID itself, so the daemon's own pidfile
+# under $XDG_RUNTIME_DIR/oosaver/ is never fought over by start-stop-daemon.
+
+description="Oosaver Wayland screensaver daemon"
+supervisor=supervise-daemon
+command="/usr/bin/oosaver"
+command_args="daemon"
+respawn_delay=5
+respawn_max=0
+stop_grace_period=10

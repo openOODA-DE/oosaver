@@ -1,0 +1,72 @@
+// # Saver Commands - list and text
+//
+// Logline: The scene-facing command verbs: roster listing and wordmark text configuration.
+// Setup: Requires ProcessCap and EnvCap for OS/config resolution, and FfiCap for terminal emission.
+// Beats:
+//   1. List the 51-scene roster in text or JSON format.
+//   2. Render wordmark presets or configure/report ASCII banner text targets.
+
+import "core/ascii/effects.oo";
+import "core/ascii/engine.oo";
+import "core/ascii/layout/wordmark.oo";
+import "core/daemon/config_file.oo";
+import "core/daemon/config.oo";
+
+pub fn cmd_list(args: List[String]) -> Int {
+    let mut json: Bool = false;
+    let mut i: Int = 0;
+    while i < list_len(args) {
+        if list_get(args, i) == "--json" {
+            json = true;
+        }
+        i = i + 1;
+    }
+    if json {
+        let mut out: String = "{\"count\":51,\"scenes\":[";
+        let mut j: Int = 0;
+        while j < 51 {
+            if j > 0 { out = out + ","; }
+            out = out + "\"" + effects_name(j) + "\"";
+            j = j + 1;
+        }
+        out = out + "]}";
+        println(out);
+        return 0;
+    }
+    let mut k: Int = 0;
+    while k < 51 {
+        println((k + 1).to_string() + " " + effects_name(k));
+        k = k + 1;
+    }
+    return 0;
+}
+
+pub fn cmd_text(fs_r: &FsReadCap, proc: &ProcessCap, ffi: &FfiCap, args: List[String]) -> Int {
+    let cur_wm: String = daemon_banner_text(fs_r, proc);
+    let a0: String = if list_len(args) > 0 { str_trim(list_get(args, 0)) } else { "" };
+    if a0 == "" || to_lowercase(a0) == "status" {
+        let frame: String = engine_wordmark_frame(72, 12, cur_wm, 4);
+        let w: Result[String, String] = oo_tui_write(ffi, frame);
+        if w.is_err() { print(frame); }
+        println("\nOosaver ASCII Text Configuration:");
+        println("  Resolved brand word: [" + cur_wm + "]");
+        println("  preset: " + to_lowercase(cur_wm) + " " + cur_wm);
+        return 0;
+    }
+    let low: String = to_lowercase(a0);
+    let mut cfg: ConfigData = config_read_file(fs_r, proc);
+    if low == "os" || low == "host" {
+        cfg.use_os_brand = true;
+    } else if !wm_known(low) {
+        cfg.use_os_brand = false;
+        cfg.custom_text = a0;
+    }
+    let _ = config_commit(fs_r, proc, cfg);
+    let disp_name: String = if low == "os" || low == "host" { daemon_banner_text(fs_r, proc) } else { a0 };
+    let frame: String = engine_wordmark_frame(72, 12, disp_name, 4);
+    let wmt: String = wm_text(disp_name);
+    let msg: String = frame + "\npreset: " + low + " " + wmt + "\n";
+    let w: Result[String, String] = oo_tui_write(ffi, msg);
+    if w.is_err() { print(msg); }
+    return 0;
+}

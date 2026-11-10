@@ -1,0 +1,25 @@
+// # ootheme GUI Presentation Helpers
+//
+// Logline: Convert palette RGBA values into ARGB2101010 pixels and pick per-theme glyph styles.
+// Setup: Pure functions over OoThemePalette tokens; zero ambient authority.
+// Beats:
+//   1. Pack 8-bit RGBA channels into the 10-bit-per-channel ARGB2101010 surface format.
+//   2. Map canonical theme names onto box-drawing glyph families for TUI/GUI chrome.
+
+import "cli/theme/ootheme.oo";
+
+pub fn ootheme_argb2101010(rgba: Int) -> Int {
+    let r8: Int = (rgba >> 24) & 255;
+    let g8: Int = (rgba >> 16) & 255;
+    let b8: Int = (rgba >> 8) & 255;
+    let r10: Int = ((r8 << 2) | (r8 >> 6)) & 1023;
+    let g10: Int = ((g8 << 2) | (g8 >> 6)) & 1023;
+    let b10: Int = ((b8 << 2) | (b8 >> 6)) & 1023;
+    return (3 << 30) | (r10 << 20) | (g10 << 10) | b10;
+}
+
+pub fn ootheme_glyph_style(p: OoThemePalette) -> String {
+    if p.name == "1982" { return "arcade-block"; }
+    if p.name == "ooda-light" { return "retro-round"; }
+    return "cyber-sharp";
+}
