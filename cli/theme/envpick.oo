@@ -7,7 +7,7 @@
 //   2. An explicit operand always wins over OODA_THEME.
 //   3. OODA_THEME is honored only when it names a palette the engine knows.
 
-import "cli/theme/ootheme.oo";
+import "cli/theme/theme.oo";
 import "oostd/fs/process/env.oo";
 
 pub fn ootheme_env_pick(env: &EnvCap, operand: String) -> String {
@@ -15,6 +15,6 @@ pub fn ootheme_env_pick(env: &EnvCap, operand: String) -> String {
     if nc.is_ok() { return "no-color"; }
     if operand != "" { return operand; }
     let et: Result[String, String] = env_get(env, "OODA_THEME");
-    if et.is_ok() && ootheme_known(et.val) { return et.val; }
+    if et.is_ok() && oosaver_theme_known(et.val) { return et.val; }
     return "";
 }

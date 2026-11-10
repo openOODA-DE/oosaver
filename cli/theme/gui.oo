@@ -6,7 +6,7 @@
 //   1. Pack 8-bit RGBA channels into the 10-bit-per-channel ARGB2101010 surface format.
 //   2. Map canonical theme names onto box-drawing glyph families for TUI/GUI chrome.
 
-import "cli/theme/ootheme.oo";
+import "oostd/core/app/ui/ootheme.oo";
 
 pub fn ootheme_argb2101010(rgba: Int) -> Int {
     let r8: Int = (rgba >> 24) & 255;

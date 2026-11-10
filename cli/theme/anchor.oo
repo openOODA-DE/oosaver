@@ -4,7 +4,7 @@
 // Setup: Pure shim. Imports the cli/theme pages.
 // Beats:
 //   1. Re-export ootheme, presets, token_names, envpick, and gui for the tree.
-import "ootheme.oo";
+import "theme.oo";
 import "presets.oo";
 import "token_names.oo";
 import "envpick.oo";

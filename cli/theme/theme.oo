@@ -1,0 +1,41 @@
+// # oosaver Theme Domain Extensions
+//
+// Logline: Screensaver preset resolver layered on the canonical oostd ootheme palette engine.
+// Setup: Imports oostd/core/app/ui/ootheme.oo for the six canonical palettes and cli/theme/presets.oo for scene presets.
+// Beats:
+//   1. oosaver_theme_known reports canonical or scene-preset names.
+//   2. oosaver_theme_resolve resolves canonical names via oostd and presets via the scene table.
+//   3. oosaver_spec_palette converts an OoThemeSpec row into a checksum-sealed OoThemePalette.
+
+import "oostd/core/app/ui/ootheme.oo";
+import "oostd/sec/pqc.oo";
+import "oostd/core/primitives/str.oo";
+import "cli/theme/presets.oo";
+
+pub fn oosaver_theme_known(name: String) -> Bool {
+    return ootheme_known(name) || ootheme_spec_known(name);
+}
+
+pub fn oosaver_theme_resolve(name: String) -> OoThemePalette {
+    if ootheme_known(name) { return ootheme_resolve(name); }
+    return oosaver_spec_palette(name);
+}
+
+fn oosaver_spec_palette(name: String) -> OoThemePalette {
+    let esc: String = chr(27);
+    let sp: OoThemeSpec = ootheme_spec(name);
+    if sp.name == "" {
+        return OoThemePalette { name: "", bg_rgba: 0, surface_rgba: 0, fg_rgba: 0,
+                accent_rgba: 0, ok_rgba: 0, warn_rgba: 0, err_rgba: 0,
+                ansi_hdr: "", ansi_ok: "", ansi_rst: "", border_tl: "", border_tr: "",
+                border_bl: "", border_br: "", border_h: "", border_v: "", checksum: 0 };
+    }
+    let scs: Int = ootheme_checksum(sp.bg, sp.surf, sp.fg, sp.acc, sp.okc, sp.wrn, sp.errc);
+    let ah: String = if sp.hdri >= 0 { esc + "[1;" + sp.hdri.to_string() + "m" } else { "" };
+    let ao: String = if sp.okvi >= 0 { esc + "[1;" + sp.okvi.to_string() + "m" } else { "" };
+    return OoThemePalette { name: sp.name, bg_rgba: sp.bg, surface_rgba: sp.surf,
+            fg_rgba: sp.fg, accent_rgba: sp.acc, ok_rgba: sp.okc, warn_rgba: sp.wrn,
+            err_rgba: sp.errc, ansi_hdr: ah, ansi_ok: ao, ansi_rst: esc + "[0m",
+            border_tl: "+", border_tr: "+", border_bl: "+", border_br: "+",
+            border_h: "-", border_v: "|", checksum: scs };
+}

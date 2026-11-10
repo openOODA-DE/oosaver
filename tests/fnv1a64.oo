@@ -6,7 +6,7 @@
 //   1. fnv1a64_update folds one byte into the running hash.
 //   2. fnv1a64_str hashes a whole serialization string.
 //   3. fnv1a64_combine folds a digest's little-endian bytes like Rust.
-//   4. fnv1a64_pqc_seal binds a digest to a verifier nonce through the canonical PQC round.
+//   4. fnv1a64_seal_bind binds a digest to a verifier nonce through the canonical PQC round.
 
 import "oostd/sec/pqc.oo";
 
@@ -61,6 +61,6 @@ pub fn fnv1a64_combine(h: Int, other: Int) -> Int {
     return cur;
 }
 
-pub fn fnv1a64_pqc_seal(h: Int, nonce: Int) -> Int {
+pub fn fnv1a64_seal_bind(h: Int, nonce: Int) -> Int {
     return oo_pqc_sha3_round(h, nonce);
 }

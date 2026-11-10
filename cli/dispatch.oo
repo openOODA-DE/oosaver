@@ -18,7 +18,7 @@ import "cli/tui/run.oo";
 import "about/theme.oo";
 import "about/card.oo";
 import "core/net/oorgb.oo";
-import "cli/theme/ootheme.oo";
+import "cli/theme/theme.oo";
 
 fn cli_self_test() -> Int {
     println("self-test: oosaver 5.0.3");
@@ -77,7 +77,7 @@ pub fn oosaver_cli_run(fs_r:&FsReadCap, fs_w:&FsWriteCap, fs:&FsCap,
     let link: OothemeLink = oosaver_ootheme_extract(args);
     let cargs: List[String] = link.args;
     let theme: String = link.theme;
-    let pal: OoThemePalette = ootheme_resolve(oosaver_ootheme_resolve(fs_r, proc, theme));
+    let pal: OoThemePalette = oosaver_theme_resolve(oosaver_theme_name(fs_r, proc, theme));
     let _rgb: Int = oorgb_sync(fs_r, proc, link.rgb, pal);
     if list_len(cargs) == 0 { return cli_help("oosaver"); }
     let verb: String = to_lowercase(str_trim(list_get(cargs, 0)));

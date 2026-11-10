@@ -4,12 +4,12 @@
 // Setup: Requires FsReadCap for the theme file and the environ block, ProcessCap for the parent-environ probe.
 // Beats:
 //   1. oosaver_ootheme_extract strips --theme/--theme= from argv before verb parsing.
-//   2. oosaver_ootheme_resolve applies flag > OOTHEME > current file > OODA_THEME > legacy file precedence.
+//   2. oosaver_theme_name applies flag > OOTHEME > current file > OODA_THEME > legacy file precedence.
 //   3. oosaver_ootheme_suppressed reports NO_COLOR, OO_NO_COLOR, or OODA_NO_COLOR.
 
 import "oostd/fs/os/fs.oo";
 import "core/environ.oo";
-import "cli/theme/ootheme.oo";
+import "cli/theme/theme.oo";
 
 type OothemeLink = struct {
     args: List[String],
@@ -89,7 +89,7 @@ pub fn oosaver_ootheme_extract(args: List[String]) -> OothemeLink {
     return OothemeLink { args: out, theme: theme, rgb: rgb };
 }
 
-fn oosaver_ootheme_resolve_raw(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String) -> String {
+fn oosaver_theme_name_raw(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String) -> String {
     if flag_theme != "" { return flag_theme; }
     let ot: String = theme_env(fs_r, proc, "OOTHEME");
     if ot != "" { return ot; }
@@ -128,10 +128,10 @@ pub fn oosaver_ootheme_suppressed(fs_r: &FsReadCap, proc: &ProcessCap) -> Bool {
 // resolved name always maps to a vendored ootheme palette.
 pub fn oosaver_ootheme_canonical(name: String) -> String {
     if name == "" { return "ooda-dark"; }
-    if ootheme_known(name) { return name; }
+    if oosaver_theme_known(name) { return name; }
     return "ooda-dark";
 }
 
-pub fn oosaver_ootheme_resolve(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String) -> String {
-    return oosaver_ootheme_canonical(oosaver_ootheme_resolve_raw(fs_r, proc, flag_theme));
+pub fn oosaver_theme_name(fs_r: &FsReadCap, proc: &ProcessCap, flag_theme: String) -> String {
+    return oosaver_ootheme_canonical(oosaver_theme_name_raw(fs_r, proc, flag_theme));
 }

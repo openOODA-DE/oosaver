@@ -9,7 +9,7 @@
 //   2. Probe for the oorgb binary on PATH.
 //   3. Issue `oorgb set accent` with the resolved palette accent; ignore failures.
 
-import "cli/theme/ootheme.oo";
+import "oostd/core/app/ui/ootheme.oo";
 import "core/environ.oo";
 import "core/shell.oo";
 import "oostd/core/primitives/str.oo";

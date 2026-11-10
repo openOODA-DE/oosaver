@@ -86,10 +86,6 @@ $(BIN): $(SRC)
 		exit 1; \
 	fi; \
 	$(MAKE) --no-print-directory ll-declares
-	@ll=$$(ls .ooda-cache/ooda-tmp/all_*.ll 2>/dev/null | head -n 1); \
-	if [ -n "$$ll" ]; then \
-		clang --no-default-config -Os -g0 -fno-ident -ffunction-sections -fdata-sections -fno-asynchronous-unwind-tables -fno-unwind-tables -Wno-override-module -I$(OODAR_INCDIR) .ooda-cache/ooda-tmp/oodac_host_rt.c $$ll $(OODAR_LIBS) -Wl,-u,oo_blackbox_trap_cap -frandom-seed=0 -Wl,--build-id=none -Wl,--gc-sections -Wl,-z,noseparate-code -Wl,--strip-debug -lm -ldl -lpthread -o $(BIN); \
-	fi
 	@chmod +x $(BIN)
 	@echo "built $(BIN)"
 

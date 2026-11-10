@@ -13,7 +13,7 @@ import "core/daemon/state.oo";
 import "core/daemon/control.oo";
 import "core/daemon/config_file.oo";
 import "core/shell.oo";
-import "cli/theme/ootheme.oo";
+import "oostd/core/app/ui/ootheme.oo";
 import "cli/theme/token_names.oo";
 import "cli/about/theme.oo";
 import "core/net/oorgb.oo";
