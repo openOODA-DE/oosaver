@@ -132,8 +132,7 @@ fn us_p0(s: UsS, info: CanvasInfo) -> UsR {
             w = eng_act_path(w, list_get(s.chars, k3), 0);
             k3 = k3 + 1;
         }
-        w = World { chars: w.chars, active: list_new(), rng: w.rng, next_id: w.next_id,
-            pend: w.pend };
+        w = World { chars: w.chars, active: list_new(), rng: w.rng, next_id: w.next_id, pend: w.pend };
         k3 = 0;
         while k3 < list_len(s.chars) {
             w = w_active_add(w, list_get(s.chars, k3));
