@@ -1,0 +1,37 @@
+// # bubbles_eng — incremental engine facade for bubbles
+//
+// Logline: Lazy state/step wrapper so the runtime session advances bubbles
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses bb_chars/bb_queue/bb_step plus tick/render.
+// Beats:
+//   1. bubbles_eng_new builds the world and bubble queues.
+//   2. bubbles_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "bubbles/scene_bubbles.oo";
+import "bubbles/bb_build.oo";
+
+pub type BubEng = struct { s: Bub, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn bubbles_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                       lines: List[String], seed: Int) -> BubEng {
+    let _ = cells;
+    let w0: World = bb_chars(w_input(info, lines, rng_seed(seed)), info);
+    return BubEng { s: bb_queue(w0, info), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn bubbles_eng_step(s: BubEng, info: CanvasInfo) -> BubEng {
+    let b: Bub = bb_step(s.s, info);
+    let w: World = eng_update(b.w);
+    let s2: Bub = Bub { w: w, pend: b.pend, anim: b.anim, steps: b.steps };
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if list_len(s2.anim.g.bounds) > 0 || list_len(w.active) > 0 ||
+        list_len(s2.pend.g.bounds) > 0 { 0 } else { 1 };
+    return BubEng { s: s2, pcs: pcs, emit: 1, fin: f };
+}

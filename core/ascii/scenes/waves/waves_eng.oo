@@ -1,0 +1,50 @@
+// # waves_eng — incremental engine facade for waves
+//
+// Logline: Lazy state/step wrapper so the runtime session advances waves
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses wv_build plus the shared engine tick/render.
+// Beats:
+//   1. waves_eng_new builds the column-grouped world state.
+//   2. waves_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "waves/scene_waves.oo";
+
+pub type WvEng = struct { s: WvS, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn waves_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> WvEng {
+    let _ = cells;
+    return WvEng { s: wv_build(w_input(info, lines, rng_seed(seed)), info),
+        pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn waves_eng_step(s: WvEng, info: CanvasInfo) -> WvEng {
+    let mut w2: World = s.s.w;
+    let mut pc2: Int = s.s.pc;
+    if pc2 < list_len(s.s.cols.keys) {
+        let col: List[Int] = grp_win(s.s.cols, pc2);
+        let mut j: Int = 0;
+        while j < list_len(col) {
+            let id: Int = list_get(col, j);
+            w2 = w_set_vis(w2, id, 1);
+            w2 = w_active_add(w2, id);
+            j = j + 1;
+        }
+        pc2 = pc2 + 1;
+    }
+    w2 = eng_update(w2);
+    let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
+    let f: Int = if pc2 < list_len(s.s.cols.keys) ||
+        list_len(w2.active) > 0 { 0 } else { 1 };
+    return WvEng { s: WvS { w: w2, cols: s.s.cols, pc: pc2 }, pcs: pcs,
+        emit: 1, fin: f };
+}

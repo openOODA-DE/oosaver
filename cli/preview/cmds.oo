@@ -1,7 +1,7 @@
 // # Preview Commands - batch and interactive scene rendering
 //
 // Logline: Render scene frames in batch mode or drive the live interactive preview with keyboard scene switching.
-// Setup: Requires FsReadCap/ProcessCap/EnvCap for config, FfiCap for terminal I/O, TimeCap for pacing, and ArenaCap for frame buffers.
+// Setup: Requires FsReadCap/ProcessCap/EnvCap for config, FfiCap for terminal I/O, and TimeCap for pacing.
 // Beats:
 //   1. Parse preview arguments and resolve the active scene, wordmark, and tour mode.
 //   2. Batch mode emits N deterministic frames; interactive mode polls the terminal and steps scenes live.
@@ -46,38 +46,40 @@ fn arg_str(args: List[String], flag: String, dflt: String) -> String {
     return dflt;
 }
 
-fn preview_batch(ffi: &FfiCap, ar: &ArenaCap, name: String, wm: String, frames: Int, cols: Int, rows: Int, tour: Bool) -> Int {
+fn preview_batch(ffi: &FfiCap, name: String, wm: String, frames: Int, cols: Int, rows: Int, tour: Bool, seed: Int) -> Int {
     let is_wm: Bool = wm_known(name) && name != "superfedora";
     if is_wm {
         let wmt: String = wm_text(name);
         println("preset " + name + " " + wmt);
     }
     let fs_str: String = frames.to_string();
-    let aid: Int = frame_arena_open(ar);
-    let use_port: Bool = !is_wm && port_has(name);
-    let mut ps: PortSession = port_session_new(name, cols, rows, wm);
+    let mut ps: PortSession = port_session_empty();
+    let mut ps_name: String = "";
     let mut i: Int = 0;
     while i < frames {
-        let mut port_frame_str: String = "";
-        if use_port {
+        let mut sc_idx: Int = 0;
+        if !is_wm {
+            sc_idx = if tour { engine_tour_index(i, 12) } else { effects_index(name) };
+            if sc_idx < 0 { sc_idx = 0; }
+            let sc_name: String = effects_name(sc_idx);
+            if sc_name != ps_name {
+                ps = port_session_new(sc_name, cols, rows, wm, seed + i);
+                ps_name = sc_name;
+            }
             ps = port_session_next(ps);
-            port_frame_str = port_session_frame(ps);
         }
-        let _e: Int = frame_arena_enter(ar, aid);
         let frame: String = if is_wm {
             engine_wordmark_frame(cols, rows, name, i)
-        } else if use_port {
-            port_frame_str
+        } else if tour {
+            engine_preview_session(ps, sc_idx, tour)
         } else {
-            engine_preview_wordmark(cols, rows, name, i, tour, wm)
+            port_session_frame(ps)
         };
         let w: Result[String, String] = oo_tui_write(ffi, frame);
         if w.is_err() { print(frame); }
         println("frame " + i.to_string() + "/" + fs_str);
-        let _l: Int = frame_arena_leave(ar, aid);
         i = i + 1;
     }
-    let _c: Int = frame_arena_close(ar, aid);
     return 0;
 }
 
@@ -112,15 +114,14 @@ fn preview_term_dims(ffi: &FfiCap) -> PvDims {
     return PvDims { rows: rows, cols: cols };
 }
 
-fn preview_tui_done(ffi:&FfiCap, ar:&ArenaCap, aid:Int) -> Int {
-    let _c: Int = frame_arena_close(ar, aid);
+fn preview_tui_done(ffi:&FfiCap) -> Int {
     let _ = oo_tui_show_cursor(ffi, 1);
     let _ = oo_tui_alt_screen_leave(ffi);
     let _ = oo_tui_disable_raw(ffi, "");
     return 0;
 }
 
-fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, wm: String, timeout_s: Int, tour: Bool)-> Int {
+fn preview_interactive(ffi:&FfiCap, time:&TimeCap, name: String, wm: String, timeout_s: Int, tour: Bool)-> Int {
     if oo_tui_enable_raw(ffi, "").is_err() { return 1; }
     let _ = oo_tui_alt_screen_enter(ffi);
     let _ = oo_tui_show_cursor(ffi, 0);
@@ -131,8 +132,7 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
     let mut eb: List[Int] = bytes_new();
     eb = bytes_push(eb, 27);
     let e0: String = bytes_to_str(eb);
-    let aid: Int = frame_arena_open(ar);
-    let mut ps: PortSession = port_session_new("plasma", 80, 24, wm);
+    let mut ps: PortSession = port_session_empty();
     let mut ps_key: String = "";
     let mut tick: Int = 0;
     let mut running: Bool = true;
@@ -151,24 +151,22 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
         if use_port {
             let key: String = sc_name + ":" + cols.to_string() + "x" + (rows - 1).to_string();
             if key != ps_key {
-                ps = port_session_new(sc_name, cols, rows - 1, wm);
+                ps = port_session_new(sc_name, cols, rows - 1, wm, now_ms(time) + tick);
                 ps_key = key;
             }
             ps = port_session_next(ps);
         }
         let port_frame_str: String = if use_port { port_session_frame(ps) } else { "" };
-        let _e: Int = frame_arena_enter(ar, aid);
         let frame: String = if is_wm {
             engine_wordmark_frame(cols, rows - 1, name, tick)
         } else if use_port {
             port_frame_str
         } else {
-            engine_preview_wordmark(cols, rows - 1, sc_name, tick, tour, wm)
+            engine_wordmark_frame(cols, rows - 1, sc_name, tick)
         };
         let tit: String = if is_wm { "Preset: " + sc_name } else { "Scene: " + sc_name + " (" + (sc + 1).to_string() + "/51) │ Banner: " + wm };
         let out_line: String = ansi_home() + frame + "\r\n" + e0 + "[1;36m[" + tit + "] [←/→/n/p: Step  q/Esc/Space: Exit]" + e0 + "[0m" + e0 + "[K";
         let _ = oo_tui_write(ffi, out_line);
-        let _l: Int = frame_arena_leave(ar, aid);
         let nsc: Int = preview_poll_key(ffi, sc);
         if nsc < 0 {
             running = false;
@@ -179,10 +177,10 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap, name: String, w
         if now_ms(time) - ft0 < 33 && now_ms(time) - ft0 >= 0 { sleep_ms(time, 33 - (now_ms(time) - ft0)); }
         tick = tick + 1;
     }
-    return preview_tui_done(ffi, ar, aid);
+    return preview_tui_done(ffi);
 }
 
-pub fn cmd_preview(fs_r:&FsReadCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap, ar:&ArenaCap,
+pub fn cmd_preview(fs_r:&FsReadCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap,
     args: List[String])-> Int {
     let cfg: ConfigData = config_read_file(fs_r, proc);
     let mut name: String = if cfg.active != "" { cfg.active } else { "ascii" };
@@ -217,8 +215,8 @@ pub fn cmd_preview(fs_r:&FsReadCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap
         let frames: Int = arg_num(args, "--frames", 2);
         let cols: Int = arg_num(args, "--cols", 72);
         let rows: Int = arg_num(args, "--rows", 12);
-        return preview_batch(ffi, ar, name, wm, frames, cols, rows, tour);
+        return preview_batch(ffi, name, wm, frames, cols, rows, tour, now_ms(time) % 2000000000 + 1);
     }
     let timeout_s: Int = arg_num(args, "--timeout", arg_num(args, "-t", 0));
-    return preview_interactive(ffi, time, ar, name, wm, timeout_s, tour);
+    return preview_interactive(ffi, time, name, wm, timeout_s, tour);
 }

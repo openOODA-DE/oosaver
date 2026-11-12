@@ -1,7 +1,7 @@
 // # oosaver Multi-Call Entrypoint
 //
 // Logline: Multi-call entrypoint that resolves the invoked persona from argv[0] or --persona and dispatches to it.
-// Setup: Declared capabilities: Process, FsRead, FsWrite, Fs, Bind, Time, Ffi, Alloc, Arena. sys_argv0 under ProcessCap authorises the persona probe; Alloc and Arena bound per-frame animation allocations; the persona owns the rest.
+// Setup: Declared capabilities: Process, FsRead, FsWrite, Fs, Bind, Time, Ffi, Alloc. sys_argv0 under ProcessCap authorises the persona probe; Alloc bounds cumulative animation allocations; the persona owns the rest.
 // Beats:
 //   1. Read the invoked program basename under ProcessCap and resolve the persona with the dispatch table.
 //   2. Fail closed on an unknown persona selector.
@@ -45,8 +45,18 @@ pub fn main(
     fs_r: &FsReadCap, fs_w: &FsWriteCap, fs: &FsCap,
     bind: &BindCap,
     proc: &ProcessCap, time: &TimeCap,
-    ffi: &FfiCap, ar: &ArenaCap
+    ffi: &FfiCap, alloc: &AllocCap
 ) -> Result[Int, String] {
+    // Top up the ambient list budget: list payloads persist for process life, so
+    // the budget must cover cumulative churn. 16 GiB covers a 240-frame preview
+    // tour (~10 GiB of retained sessions at 80x24). rings at 200x50 needs >53
+    // GiB resident and dies to the kernel even at a 128 GiB budget — infeasible
+    // without an engine-level rewrite; accepted out of scope for Wave 1.
+    let mut qi: Int = 0;
+    while qi < 16 {
+        let _q: Int = alloc_bytes(alloc, 1073741824);
+        qi = qi + 1;
+    }
     let args: List[String] = process_args(proc);
     let prog: String = sys_argv0(proc);
     let mut persona: String = oosaver_persona_resolve(prog);
@@ -73,5 +83,5 @@ pub fn main(
     if list_len(args2) > 0 && to_lowercase(str_trim(list_get(args2, 0))) == "daemon" {
         return Ok(cmd_daemon(fs_r, proc, bind, fs, fs_w, time));
     }
-    return Ok(oosaver_cli_run(fs_r, fs_w, fs, proc, time, ffi, ar, args2));
+    return Ok(oosaver_cli_run(fs_r, fs_w, fs, proc, time, ffi, args2));
 }

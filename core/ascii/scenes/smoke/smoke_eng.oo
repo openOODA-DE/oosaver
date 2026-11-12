@@ -1,0 +1,48 @@
+// # smoke_eng — incremental engine facade for smoke
+//
+// Logline: Lazy state/step wrapper so the runtime session advances smoke
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses sm_build/bf_new/bf_step plus tick/render.
+// Beats:
+//   1. smoke_eng_new builds the world and flood state.
+//   2. smoke_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "smoke/scene_smoke.oo";
+import "smoke/sm_bfs.oo";
+
+pub type SmEng = struct { w: World, bf: BfSt, edges: List[Int],
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn smoke_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> SmEng {
+    let _ = cells;
+    let b: SmB = sm_build(w_input(info, lines, rng_seed(seed)), info);
+    return SmEng { w: b.w, bf: bf_new(list_len(b.w.chars), b.start),
+        edges: b.edges, pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn smoke_eng_step(s: SmEng, info: CanvasInfo) -> SmEng {
+    let mut w: World = s.w;
+    let mut bf: BfSt = s.bf;
+    if bf.done == 0 {
+        bf = bf_step(s.edges, bf);
+        let mut m: Int = 0;
+        while m < list_len(bf.last) {
+            let id: Int = list_get(bf.last, m);
+            w = w_aset(w, id, 1);
+            w = w_active_add(w, id);
+            m = m + 1;
+        }
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if bf.done == 0 || list_len(w.active) > 0 { 0 } else { 1 };
+    return SmEng { w: w, bf: bf, edges: s.edges, pcs: pcs, emit: 1, fin: f };
+}

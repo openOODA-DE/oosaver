@@ -1,0 +1,53 @@
+// # spray_eng — incremental engine facade for spray
+//
+// Logline: Lazy state/step wrapper so the runtime session advances spray
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses sp_build plus the shared engine tick/render.
+// Beats:
+//   1. spray_eng_new builds the world and pending queue.
+//   2. spray_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "core/ascii/eng/engine/rng_helpers.oo";
+import "spray/scene_spray.oo";
+
+pub type SyEng = struct { w: World, pend: List[Int], vol: Int,
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn spray_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> SyEng {
+    let _ = cells;
+    let bs: SpB = sp_build(w_input(info, lines, rng_seed(seed)), info);
+    return SyEng { w: bs.w, pend: bs.pend, vol: bs.vol, pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn spray_eng_step(s: SyEng, info: CanvasInfo) -> SyEng {
+    let mut w: World = s.w;
+    let mut pend: List[Int] = s.pend;
+    if list_len(pend) > 0 {
+        let dn: DR = rng_int(w.rng, 1, s.vol);
+        w = w_rng(w, dn.r);
+        let mut t: Int = 0;
+        while t < dn.v {
+            if list_len(pend) > 0 {
+                let id: Int = list_get(pend, list_len(pend) - 1);
+                pend = list_slice(pend, 0, list_len(pend) - 1);
+                w = w_set_vis(w, id, 1);
+                w = w_active_add(w, id);
+            }
+            t = t + 1;
+        }
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if list_len(pend) > 0 || list_len(w.active) > 0 { 0 } else { 1 };
+    return SyEng { w: w, pend: pend, vol: s.vol, pcs: pcs, emit: 1, fin: f };
+}

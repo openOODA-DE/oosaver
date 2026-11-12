@@ -1,0 +1,176 @@
+// # wipe_eng — incremental engine facade for the wipe family
+//
+// Logline: Lazy state/step wrappers for wipe, sweep, slide, and middleout so
+// the runtime session advances these scenes without a pre-rendered tape.
+// Setup: Pure compute. Reuses each scene's own builders, seq tracker, and the
+// shared engine tick/render; the parity drivers are untouched.
+// Beats:
+//   1. *_eng_new builds each scene's world and bookkeeping once.
+//   2. *_eng_step mirrors one run-loop iteration per scene.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/easing_fns.oo";
+import "core/ascii/eng/engine/seq_easer.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "wipe/scene_wipe.oo";
+import "wipe/scene_sweep.oo";
+import "wipe/scene_slide.oo";
+import "wipe/scene_middleout.oo";
+
+pub type WpEng = struct { w: World, g: Groups, gseq: List[Int], trk: Trk,
+    pcs: List[PaintCell], emit: Int, fin: Int };
+pub type SeEng = struct { w: World, g: Groups, g2: Groups, gseq: List[Int],
+    trk: Trk, phase: Int, done: Int, pcs: List[PaintCell], emit: Int, fin: Int };
+pub type SdEng = struct { w: World, g: Groups, gn: Int, ag: List[Int],
+    ap: List[Int], gap: Int, pcs: List[PaintCell], emit: Int, fin: Int };
+pub type MiEng = struct { w: World, ids: List[Int], phase: Int,
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn wipe_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                    lines: List[String], seed: Int) -> WpEng {
+    let _ = cells;
+    let w: World = wipe_build(w_input(info, lines, rng_seed(seed)), info);
+    let g: Groups = groups_of(w, collect_ids(w, 1), 3, 0, 0, 0);
+    return WpEng { w: w, g: g, gseq: gidx_of(list_len(g.keys)),
+        trk: trk_new(ez(17), 100), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn wipe_eng_step(s: WpEng, info: CanvasInfo) -> WpEng {
+    let mut w: World = s.w;
+    let st: SeqStep = seq_step(s.gseq, s.trk);
+    let trk: Trk = st.trk;
+    let mut a: Int = 0;
+    while a < list_len(st.add) {
+        let win: List[Int] = grp_win(s.g, list_get(st.add, a));
+        let mut m: Int = 0;
+        while m < list_len(win) {
+            let id: Int = list_get(win, m);
+            w = w_aset(w, id, 0);
+            w = w_set_vis(w, id, 1);
+            w = w_active_add(w, id);
+            m = m + 1;
+        }
+        a = a + 1;
+    }
+    w = wipe_rem(w, s.g, st.rem);
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if list_len(w.active) > 0 || trk_complete(trk) == 0 { 0 }
+        else { 1 };
+    return WpEng { w: w, g: s.g, gseq: s.gseq, trk: trk, pcs: pcs,
+        emit: 1, fin: f };
+}
+
+pub fn sweep_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> SeEng {
+    let _ = cells;
+    let mut w: World = w_input(info, lines, rng_seed(seed));
+    w = sw_build(w, info);
+    let ids7: List[Int] = collect_ids(w, 7);
+    let g: Groups = groups_of(w, ids7, 0, 0, 0, 1);
+    let g2: Groups = groups_of(w, ids7, 0, 0, 0, 0);
+    return SeEng { w: w, g: g, g2: g2, gseq: sw_gidx(list_len(g.keys)),
+        trk: trk_new(ez(21), 100), phase: 0, done: 0, pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn sweep_eng_step(s: SeEng, info: CanvasInfo) -> SeEng {
+    let mut w: World = s.w;
+    let mut g: Groups = s.g;
+    let mut gseq: List[Int] = s.gseq;
+    let mut trk: Trk = s.trk;
+    let mut phase: Int = s.phase;
+    let mut done: Int = s.done;
+    let st: SeqStep = seq_step(gseq, trk);
+    trk = st.trk;
+    let mut a: Int = 0;
+    while a < list_len(st.add) {
+        w = sw_add(w, g, list_get(st.add, a), phase);
+        a = a + 1;
+    }
+    if trk_complete(trk) == 1 {
+        if phase == 0 {
+            phase = 1;
+            g = s.g2;
+            gseq = sw_gidx(list_len(s.g2.keys));
+            trk = trk_new(ez(21), 100);
+        } else {
+            done = 1;
+        }
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if list_len(w.active) > 0 || done == 0 { 0 } else { 1 };
+    return SeEng { w: w, g: g, g2: s.g2, gseq: gseq, trk: trk, phase: phase,
+        done: done, pcs: pcs, emit: 1, fin: f };
+}
+
+pub fn slide_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> SdEng {
+    let _ = cells;
+    let w: World = sl_build(w_input(info, lines, rng_seed(seed)), info);
+    let g: Groups = grp_rev(groups_of(w, collect_ids(w, 1), 1, 0, 0, 1));
+    return SdEng { w: w, g: g, gn: 0, ag: list_new(), ap: list_new(),
+        gap: 0, pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn slide_eng_step(s: SdEng, info: CanvasInfo) -> SdEng {
+    let mut gn: Int = s.gn;
+    let mut ag: List[Int] = s.ag;
+    let mut ap: List[Int] = s.ap;
+    let mut gap: Int = s.gap;
+    if gap == 2 && gn < list_len(s.g.keys) {
+        ag = list_push(ag, gn);
+        ap = list_push(ap, 0);
+        gn = gn + 1;
+        gap = 0;
+    } else {
+        if gn < list_len(s.g.keys) { gap = gap + 1; }
+    }
+    let sp: SlPop = sl_pops(SlPop { w: s.w, ag: ag, ap: ap }, s.g);
+    let w: World = eng_update(sp.w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if gn < list_len(s.g.keys) || list_len(sp.ag) > 0 ||
+        list_len(w.active) > 0 { 0 } else { 1 };
+    return SdEng { w: w, g: s.g, gn: gn, ag: sp.ag, ap: sp.ap, gap: gap,
+        pcs: pcs, emit: 1, fin: f };
+}
+
+pub fn middleout_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                         lines: List[String], seed: Int) -> MiEng {
+    let _ = cells;
+    let w: World = mo_build(w_input(info, lines, rng_seed(seed)), info);
+    return MiEng { w: w, ids: collect_ids(w, 1), phase: 0, pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn middleout_eng_step(s: MiEng, info: CanvasInfo) -> MiEng {
+    let mut w: World = s.w;
+    let mut phase: Int = s.phase;
+    if phase == 0 && list_len(w.active) == 0 {
+        phase = 1;
+        w = mo_act_all(w, s.ids);
+        let mut k: Int = 0;
+        while k < list_len(s.ids) {
+            let id: Int = list_get(s.ids, k);
+            w = eng_act_path(w, id, 1);
+            w = w_aset(w, id, 0);
+            k = k + 1;
+        }
+    }
+    if list_len(w.active) == 0 {
+        return MiEng { w: w, ids: s.ids, phase: phase, pcs: list_new(),
+            emit: 0, fin: 1 };
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    return MiEng { w: w, ids: s.ids, phase: phase, pcs: pcs, emit: 1, fin: 0 };
+}

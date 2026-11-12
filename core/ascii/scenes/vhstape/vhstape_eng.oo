@@ -1,0 +1,70 @@
+// # vhstape_eng — incremental engine facade for vhstape
+//
+// Logline: Lazy state/step wrapper so the runtime session advances vhstape
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses the vh_* builders plus tick/render.
+// Beats:
+//   1. vhstape_eng_new builds the world, ids, and glitch state.
+//   2. vhstape_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/gradient_map.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "vhstape/scene_vhstape.oo";
+import "vhstape/vh_build.oo";
+import "vhstape/vh_sim.oo";
+import "vhstape/vh_geom.oo";
+import "vhstape/vh_step.oo";
+
+pub type VhEng = struct { s: VhS, ids: List[Int], pcs: List[PaintCell],
+    emit: Int, fin: Int };
+
+pub fn vhstape_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                       lines: List[String], seed: Int) -> VhEng {
+    let _ = cells;
+    let mut w: World = w_input(info, lines, rng_seed(seed));
+    let cmap: List[Int] = cmap_v(vh_fspec(), info.tb, info.tt);
+    let g: Groups = groups_of(w, collect_ids(w, 1), 1, 0, 0, 0);
+    let mut gi: Int = 0;
+    while gi < list_len(g.keys) {
+        w = vh_line(w, grp_win(g, gi), cmap, info);
+        gi = gi + 1;
+    }
+    let ids: List[Int] = collect_ids(w, 1);
+    let mut i: Int = 0;
+    while i < list_len(ids) {
+        let id: Int = list_get(ids, i);
+        w = w_set_vis(w, id, 1);
+        w = w_aset(w, id, find_id(list_get(w.chars, id).sids, "base"));
+        i = i + 1;
+    }
+    let mut redraw: List[Int] = list_new();
+    let mut r: Int = 0;
+    while r < list_len(g.keys) { redraw = list_push(redraw, r); r = r + 1; }
+    let s: VhS = VhS { w: w, g: g, top: 0 - 1, wave: list_new(),
+        gl: list_new(), steps: 0, phase: 0, redraw: redraw, redrawing: 0 };
+    return VhEng { s: s, ids: ids, pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn vhstape_eng_step(s: VhEng, info: CanvasInfo) -> VhEng {
+    let mut st: VhS = s.s;
+    if st.phase == 0 {
+        st = vh_glitching(st, info);
+    } else {
+        st = vh_late(st, s.ids);
+    }
+    let w: World = eng_update(st.w);
+    let s2: VhS = VhS { w: w, g: st.g, top: st.top, wave: st.wave,
+        gl: st.gl, steps: st.steps, phase: st.phase, redraw: st.redraw,
+        redrawing: st.redrawing };
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if s2.phase == 3 && list_len(w.active) == 0 { 1 } else { 0 };
+    return VhEng { s: s2, ids: s.ids, pcs: pcs, emit: 1, fin: f };
+}

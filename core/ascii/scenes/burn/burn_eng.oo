@@ -1,0 +1,63 @@
+// # burn_eng — incremental engine facade for burn
+//
+// Logline: Lazy state/step wrapper so the runtime session advances burn
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses the burn builders plus tick/render.
+// Beats:
+//   1. burn_eng_new builds the world, burn pool, grid, and fire order.
+//   2. burn_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/gradient_map.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "core/ascii/eng/engine/rng_helpers.oo";
+import "burn/scene_burn.oo";
+import "burn/bn_prims.oo";
+import "burn/bn_smoke.oo";
+
+pub type BnEng = struct { w: World, avail: List[Int], order: List[Int],
+    cnt: Int, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn burn_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                    lines: List[String], seed: Int) -> BnEng {
+    let _ = cells;
+    let mut w: World = w_input(info, lines, rng_seed(seed));
+    let dc: DR = rng_int(w.rng, info.tl, info.tr);
+    let dr: DR = rng_int(dc.r, info.tb, info.tt);
+    w = w_rng(w, dr.r);
+    let bp: BnP = bn_pool(w, 2000);
+    w = bp.w;
+    let grid: List[Int] = bn_grid(w, info);
+    let start: Int = bn_at(grid, info, dc.v, dr.v);
+    let mut st: BnSt = bn_link(list_len(w.chars), start, w.rng);
+    while list_len(st.edges) > 0 { st = bn_step(info, w, grid, st); }
+    w = w_rng(w, st.rng);
+    let fire: List[Int] = gradient_new(list_push(list_push(list_push(list_push(
+        list_push(list_new(), 16777215), 16775005), 16672013), 9044028),
+        5308672), list_push(list_new(), 10), 0);
+    let fin2: List[Int] = gradient_new(list_push(list_push(list_new(),
+        50175), 16776988), list_push(list_new(), 12), 0);
+    let fmap: List[Int] = cmap_v(fin2, info.tb, info.tt);
+    w = bn_setup(w, collect_ids(w, 1), fmap, fire, info);
+    return BnEng { w: w, avail: bp.avail, order: st.order, cnt: 0,
+        pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn burn_eng_step(s: BnEng, info: CanvasInfo) -> BnEng {
+    let q: BnQ = bn_pops(s.w, s.order);
+    let w: World = eng_update(q.w);
+    let d: BnD = bn_drain(w, s.avail, s.cnt, info);
+    let pcs: List[PaintCell] = eng_render(d.w, info.cols, info.rows);
+    let f: Int = if list_len(q.order) > 0 || list_len(d.w.active) > 0 { 0 }
+        else { 1 };
+    return BnEng { w: d.w, avail: d.avail, order: q.order, cnt: d.cnt,
+        pcs: pcs, emit: 1, fin: f };
+}

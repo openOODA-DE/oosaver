@@ -1,0 +1,30 @@
+// # tetris_eng — incremental engine facade for tetris
+//
+// Logline: Lazy state/step wrapper so the runtime session advances tetris without
+// a pre-rendered tape.
+// Setup: Pure compute. Reuses tetris_new/tetris_next/tetris_advance from the scene
+// page; the parity digest driver there is untouched.
+// Beats:
+//   1. tetris_eng_new holds the initial scene state plus frame bookkeeping.
+//   2. tetris_eng_step renders the current state, advances one engine step, and
+//      reports emit/fin like the run driver's break-on-empty loop.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "tetris/scene_tetris.oo";
+
+pub type TetrisEng = struct { s: Tetris, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn tetris_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                    lines: List[String], seed: Int) -> TetrisEng {
+    let _ = lines;
+    let _ = seed;
+    return TetrisEng { s: tetris_new(cells, info), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn tetris_eng_step(s: TetrisEng, info: CanvasInfo) -> TetrisEng {
+    let _ = info;
+    let pcs: List[PaintCell] = tetris_next(s.s);
+    if list_len(pcs) == 0 { return TetrisEng { s: s.s, pcs: pcs, emit: 0, fin: 1 }; }
+    return TetrisEng { s: tetris_advance(s.s), pcs: pcs, emit: 1, fin: 0 };
+}

@@ -1,0 +1,62 @@
+// # deep_eng — incremental engine facade for the deep family
+//
+// Logline: Lazy state/step wrappers for radar, cosmos, and mystify so the
+// runtime session advances these scenes without a pre-rendered tape.
+// Setup: Pure compute. Reuses each scene's own new/next/advance functions; the
+// parity digest driver in each scene page is untouched.
+// Beats:
+//   1. *_eng_new holds the initial scene state plus frame bookkeeping.
+//   2. *_eng_step renders the current state, advances one engine step, and
+//      reports emit/fin like the run driver's break-on-empty loop.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "deep/scene_radar.oo";
+import "deep/scene_cosmos.oo";
+import "deep/scene_mystify.oo";
+
+pub type RaEng = struct { s: Radar, pcs: List[PaintCell], emit: Int, fin: Int };
+pub type CoEng = struct { s: Cosmos, pcs: List[PaintCell], emit: Int, fin: Int };
+pub type MyEng = struct { s: Mystify, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn radar_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> RaEng {
+    let _ = lines;
+    let _ = seed;
+    return RaEng { s: radar_new(cells, info), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn radar_eng_step(s: RaEng, info: CanvasInfo) -> RaEng {
+    let _ = info;
+    let pcs: List[PaintCell] = radar_next(s.s);
+    if list_len(pcs) == 0 { return RaEng { s: s.s, pcs: pcs, emit: 0, fin: 1 }; }
+    return RaEng { s: radar_advance(s.s), pcs: pcs, emit: 1, fin: 0 };
+}
+
+pub fn cosmos_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                      lines: List[String], seed: Int) -> CoEng {
+    let _ = lines;
+    let _ = seed;
+    return CoEng { s: cosmos_new(cells, info), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn cosmos_eng_step(s: CoEng, info: CanvasInfo) -> CoEng {
+    let _ = info;
+    let pcs: List[PaintCell] = cosmos_next(s.s);
+    if list_len(pcs) == 0 { return CoEng { s: s.s, pcs: pcs, emit: 0, fin: 1 }; }
+    return CoEng { s: cosmos_advance(s.s), pcs: pcs, emit: 1, fin: 0 };
+}
+
+pub fn mystify_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                       lines: List[String], seed: Int) -> MyEng {
+    let _ = lines;
+    let _ = seed;
+    return MyEng { s: mystify_new(cells, info), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn mystify_eng_step(s: MyEng, info: CanvasInfo) -> MyEng {
+    let _ = info;
+    let pcs: List[PaintCell] = mystify_next(s.s);
+    if list_len(pcs) == 0 { return MyEng { s: s.s, pcs: pcs, emit: 0, fin: 1 }; }
+    return MyEng { s: mystify_advance(s.s), pcs: pcs, emit: 1, fin: 0 };
+}

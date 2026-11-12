@@ -1,0 +1,55 @@
+// # errorcorrect_eng — incremental engine facade for errorcorrect
+//
+// Logline: Lazy state/step wrapper so the runtime session advances
+// errorcorrect without a pre-rendered tape.
+// Setup: Pure compute. Reuses ec_build plus the shared engine tick/render.
+// Beats:
+//   1. errorcorrect_eng_new builds the world and pair queue.
+//   2. errorcorrect_eng_step mirrors one run-loop iteration, including its
+//      emit-only-while-active semantics.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "errorcorrect/scene_errorcorrect.oo";
+
+pub type EcEng = struct { w: World, pairs: List[Int], delay: Int,
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn errorcorrect_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                            lines: List[String], seed: Int) -> EcEng {
+    let _ = cells;
+    let b: EcB = ec_build(w_input(info, lines, rng_seed(seed)), info);
+    return EcEng { w: b.w, pairs: b.pairs, delay: 0, pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn errorcorrect_eng_step(s: EcEng, info: CanvasInfo) -> EcEng {
+    let mut w: World = s.w;
+    let mut pairs: List[Int] = s.pairs;
+    let mut delay: Int = s.delay;
+    if list_len(pairs) > 0 && delay == 0 {
+        let c1: Int = list_get(pairs, 0);
+        let c2: Int = list_get(pairs, 1);
+        pairs = list_slice(pairs, 2, list_len(pairs));
+        w = w_aset(w, c1, 4);
+        w = w_active_add(w, c1);
+        w = w_aset(w, c2, 4);
+        w = w_active_add(w, c2);
+        delay = 3;
+    } else {
+        if delay != 0 { delay = delay - 1; }
+    }
+    if list_len(w.active) == 0 {
+        return EcEng { w: w, pairs: pairs, delay: delay, pcs: list_new(),
+            emit: 0, fin: 1 };
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    return EcEng { w: w, pairs: pairs, delay: delay, pcs: pcs, emit: 1, fin: 0 };
+}

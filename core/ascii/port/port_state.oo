@@ -1,0 +1,160 @@
+// # Port State — Lazy Incremental Engine Union
+//
+// Logline: One struct holding every scene engine's live state so runtime
+// preview advances scenes lazily instead of replaying a pre-rendered tape.
+// Setup: Pure state. Inactive engines are constructed on empty line input so
+// a session pays only for the scene it actually runs; each engine's pcs/fin
+// fields carry the latest step result.
+// Beats:
+//   1. port_state_new builds all 51 engine states once per session.
+//   2. port_arcade_steps encodes the Rust ScenePace::Arcade tempo table.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/scenes/wave/wave_eng.oo";
+import "core/ascii/scenes/veil/veil_eng.oo";
+import "core/ascii/scenes/deep/deep_eng.oo";
+import "core/ascii/scenes/orbit/metaballs_eng.oo";
+import "core/ascii/scenes/breakout/breakout_eng.oo";
+import "core/ascii/scenes/life/life_eng.oo";
+import "core/ascii/scenes/pipes/pipes_eng.oo";
+import "core/ascii/scenes/tetris/tetris_eng.oo";
+import "core/ascii/scenes/text/expand_eng.oo";
+import "core/ascii/scenes/wipe/wipe_eng.oo";
+import "core/ascii/scenes/slice/slice_eng.oo";
+import "core/ascii/scenes/colorshift/colorshift_eng.oo";
+import "core/ascii/scenes/scattered/scattered_eng.oo";
+import "core/ascii/scenes/spray/spray_eng.oo";
+import "core/ascii/scenes/fireworks/fireworks_eng.oo";
+import "core/ascii/scenes/errorcorrect/errorcorrect_eng.oo";
+import "core/ascii/scenes/rain/rain_eng.oo";
+import "core/ascii/scenes/pour/pour_eng.oo";
+import "core/ascii/scenes/randomsequence/randomsequence_eng.oo";
+import "core/ascii/scenes/waves/waves_eng.oo";
+import "core/ascii/scenes/bubbles/bubbles_eng.oo";
+import "core/ascii/scenes/swarm/swarm_eng.oo";
+import "core/ascii/scenes/thunderstorm/thunderstorm_eng.oo";
+import "core/ascii/scenes/unstable/unstable_eng.oo";
+import "core/ascii/scenes/beams/beams_eng.oo";
+import "core/ascii/scenes/bhole/bhole_eng.oo";
+import "core/ascii/scenes/bouncy/bouncyballs_eng.oo";
+import "core/ascii/scenes/bpath/bpath_eng.oo";
+import "core/ascii/scenes/burn/burn_eng.oo";
+import "core/ascii/scenes/crumble/crumble_eng.oo";
+import "core/ascii/scenes/decrypt/decrypt_eng.oo";
+import "core/ascii/scenes/highlight/highlight_eng.oo";
+import "core/ascii/scenes/laseretch/laseretch_eng.oo";
+import "core/ascii/scenes/matrix/matrix_eng.oo";
+import "core/ascii/scenes/orbittingvolley/orbittingvolley_eng.oo";
+import "core/ascii/scenes/overflow/overflow_eng.oo";
+import "core/ascii/scenes/print/print_eng.oo";
+import "core/ascii/scenes/rings/rings_eng.oo";
+import "core/ascii/scenes/smoke/smoke_eng.oo";
+import "core/ascii/scenes/spotlights/spotlights_eng.oo";
+import "core/ascii/scenes/synthgrid/synthgrid_eng.oo";
+import "core/ascii/scenes/vhstape/vhstape_eng.oo";
+
+pub type PortState = struct {
+    name: String,
+    info: CanvasInfo,
+    plasma: PlEng, ripple: RiEng, moire: MoEng, tunnel: TuEng,
+    aurora: AuEng, chaos: ChEng, radar: RaEng, cosmos: CoEng,
+    mystify: MyEng, metaballs: MbEng, breakout: BreakoutEng,
+    life: LifeEng, pipes: PipesEng, tetris: TetrisEng,
+    expand: ExEng, wipe: WpEng, sweep: SeEng, slide: SdEng,
+    middleout: MiEng, slice: SzEng, colorshift: CsEng,
+    scattered: ScEng, spray: SyEng, fireworks: FwEng,
+    errorcorrect: EcEng, rain: RnEng, pour: PqEng,
+    randomsequence: RsEng, waves: WvEng, bubbles: BubEng,
+    swarm: SwEng, thunderstorm: ThEng, unstable: UsEng,
+    beams: BmEng, blackhole: BhEng, bouncyballs: ByEng,
+    binarypath: BpEng, burn: BnEng, crumble: CrEng,
+    decrypt: DcEng, highlight: HlEng, laseretch: LeEng,
+    matrix: MxEng, orbittingvolley: OvEng, overflow: OfEng,
+    print: PtEng, rings: RgEng, smoke: SmEng,
+    spotlights: SpEng, synthgrid: SgEng, vhstape: VhEng
+};
+
+fn pa_l(on: Bool, yes: List[String], no: List[String]) -> List[String] {
+    if on { return yes; }
+    return no;
+}
+
+pub fn port_arcade_steps(name: String) -> Int {
+    if name == "plasma" || name == "ripple" || name == "aurora" ||
+        name == "chaos" || name == "metaballs" || name == "moire" ||
+        name == "cosmos" || name == "radar" || name == "tunnel" ||
+        name == "mystify" || name == "wipe" || name == "breakout" ||
+        name == "life" || name == "pipes" || name == "tetris" { return 1; }
+    if name == "expand" || name == "sweep" || name == "slide" ||
+        name == "middleout" || name == "slice" || name == "highlight" ||
+        name == "overflow" { return 2; }
+    if name == "blackhole" { return 7; }
+    if name == "bubbles" || name == "swarm" { return 6; }
+    if name == "binarypath" || name == "print" || name == "pour" ||
+        name == "burn" || name == "errorcorrect" ||
+        name == "bouncyballs" || name == "thunderstorm" { return 5; }
+    if name == "spotlights" || name == "matrix" || name == "rings" ||
+        name == "synthgrid" || name == "beams" || name == "fireworks" ||
+        name == "rain" || name == "orbittingvolley" || name == "crumble" ||
+        name == "decrypt" { return 4; }
+    return 3;
+}
+
+pub fn port_state_new(name: String, cells: List[CellGeom], info: CanvasInfo,
+                      lines: List[String], seed: Int) -> PortState {
+    let el: List[String] = list_new();
+    let ln: List[String] = lines;
+    return PortState { name: name, info: info,
+        plasma: plasma_eng_new(cells, info, pa_l(name == "plasma", ln, el), seed),
+        ripple: ripple_eng_new(cells, info, pa_l(name == "ripple", ln, el), seed),
+        moire: moire_eng_new(cells, info, pa_l(name == "moire", ln, el), seed),
+        tunnel: tunnel_eng_new(cells, info, pa_l(name == "tunnel", ln, el), seed),
+        aurora: aurora_eng_new(cells, info, pa_l(name == "aurora", ln, el), seed),
+        chaos: chaos_eng_new(cells, info, pa_l(name == "chaos", ln, el), seed),
+        radar: radar_eng_new(cells, info, pa_l(name == "radar", ln, el), seed),
+        cosmos: cosmos_eng_new(cells, info, pa_l(name == "cosmos", ln, el), seed),
+        mystify: mystify_eng_new(cells, info, pa_l(name == "mystify", ln, el), seed),
+        metaballs: metaballs_eng_new(cells, info, pa_l(name == "metaballs", ln, el), seed),
+        breakout: breakout_eng_new(cells, info, pa_l(name == "breakout", ln, el), seed),
+        life: life_eng_new(cells, info, pa_l(name == "life", ln, el), seed),
+        pipes: pipes_eng_new(cells, info, pa_l(name == "pipes", ln, el), seed),
+        tetris: tetris_eng_new(cells, info, pa_l(name == "tetris", ln, el), seed),
+        expand: expand_eng_new(cells, info, pa_l(name == "expand", ln, el), seed),
+        wipe: wipe_eng_new(cells, info, pa_l(name == "wipe", ln, el), seed),
+        sweep: sweep_eng_new(cells, info, pa_l(name == "sweep", ln, el), seed),
+        slide: slide_eng_new(cells, info, pa_l(name == "slide", ln, el), seed),
+        middleout: middleout_eng_new(cells, info, pa_l(name == "middleout", ln, el), seed),
+        slice: slice_eng_new(cells, info, pa_l(name == "slice", ln, el), seed),
+        colorshift: colorshift_eng_new(cells, info, pa_l(name == "colorshift", ln, el), seed),
+        scattered: scattered_eng_new(cells, info, pa_l(name == "scattered", ln, el), seed),
+        spray: spray_eng_new(cells, info, pa_l(name == "spray", ln, el), seed),
+        fireworks: fireworks_eng_new(cells, info, pa_l(name == "fireworks", ln, el), seed),
+        errorcorrect: errorcorrect_eng_new(cells, info, pa_l(name == "errorcorrect", ln, el), seed),
+        rain: rain_eng_new(cells, info, pa_l(name == "rain", ln, el), seed),
+        pour: pour_eng_new(cells, info, pa_l(name == "pour", ln, el), seed),
+        randomsequence: randomsequence_eng_new(cells, info, pa_l(name == "randomsequence", ln, el), seed),
+        waves: waves_eng_new(cells, info, pa_l(name == "waves", ln, el), seed),
+        bubbles: bubbles_eng_new(cells, info, pa_l(name == "bubbles", ln, el), seed),
+        swarm: swarm_eng_new(cells, info, pa_l(name == "swarm", ln, el), seed),
+        thunderstorm: thunderstorm_eng_new(cells, info, pa_l(name == "thunderstorm", ln, el), seed),
+        unstable: unstable_eng_new(cells, info, pa_l(name == "unstable", ln, el), seed),
+        beams: beams_eng_new(cells, info, pa_l(name == "beams", ln, el), seed),
+        blackhole: blackhole_eng_new(cells, info, pa_l(name == "blackhole", ln, el), seed),
+        bouncyballs: bouncyballs_eng_new(cells, info, pa_l(name == "bouncyballs", ln, el), seed),
+        binarypath: binarypath_eng_new(cells, info, pa_l(name == "binarypath", ln, el), seed),
+        burn: burn_eng_new(cells, info, pa_l(name == "burn", ln, el), seed),
+        crumble: crumble_eng_new(cells, info, pa_l(name == "crumble", ln, el), seed),
+        decrypt: decrypt_eng_new(cells, info, pa_l(name == "decrypt", ln, el), seed),
+        highlight: highlight_eng_new(cells, info, pa_l(name == "highlight", ln, el), seed),
+        laseretch: laseretch_eng_new(cells, info, pa_l(name == "laseretch", ln, el), seed),
+        matrix: matrix_eng_new(cells, info, pa_l(name == "matrix", ln, el), seed),
+        orbittingvolley: orbittingvolley_eng_new(cells, info, pa_l(name == "orbittingvolley", ln, el), seed),
+        overflow: overflow_eng_new(cells, info, pa_l(name == "overflow", ln, el), seed),
+        print: print_eng_new(cells, info, pa_l(name == "print", ln, el), seed),
+        rings: rings_eng_new(cells, info, pa_l(name == "rings", ln, el), seed),
+        smoke: smoke_eng_new(cells, info, pa_l(name == "smoke", ln, el), seed),
+        spotlights: spotlights_eng_new(cells, info, pa_l(name == "spotlights", ln, el), seed),
+        synthgrid: synthgrid_eng_new(cells, info, pa_l(name == "synthgrid", ln, el), seed),
+        vhstape: vhstape_eng_new(cells, info, pa_l(name == "vhstape", ln, el), seed)
+    };
+}

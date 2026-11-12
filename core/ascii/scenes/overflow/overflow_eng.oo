@@ -1,0 +1,62 @@
+// # overflow_eng — incremental engine facade for overflow
+//
+// Logline: Lazy state/step wrapper so the runtime session advances overflow
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses ov_build/ov_burst plus tick/render.
+// Beats:
+//   1. overflow_eng_new builds the world, row queue, and gradient.
+//   2. overflow_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/gradient_map.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "overflow/scene_overflow.oo";
+
+pub type OfEng = struct { w: World, pend: List[OvRow], act: List[OvRow],
+    spec: List[Int], delay: Int, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn overflow_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                        lines: List[String], seed: Int) -> OfEng {
+    let _ = cells;
+    let b: OvB = ov_build(w_input(info, lines, rng_seed(seed)), info);
+    let ostops: List[Int] = list_push(list_push(list_push(list_new(),
+        15920064), 9289651), 15920064);
+    return OfEng { w: b.w, pend: b.rows, act: list_new(),
+        spec: gradient_new(ostops, list_push(list_new(), 12), 0), delay: 0,
+        pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn overflow_eng_step(s: OfEng, info: CanvasInfo) -> OfEng {
+    let mut w: World = s.w;
+    let mut pend: List[OvRow] = s.pend;
+    let mut act: List[OvRow] = s.act;
+    let mut delay: Int = s.delay;
+    if delay == 0 {
+        let st: OvS = ov_burst(w, pend, act, s.spec);
+        w = st.w;
+        pend = st.pend;
+        act = st.act;
+        delay = st.delay;
+    } else {
+        delay = delay - 1;
+    }
+    let mut kept: List[OvRow] = list_new();
+    let mut r: Int = 0;
+    while r < list_len(act) {
+        let row: OvRow = list_get(act, r);
+        if list_get(w.chars, list_get(row.chars, 0)).cr <= info.top {
+            kept = list_push(kept, row);
+        }
+        r = r + 1;
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if list_len(pend) > 0 { 0 } else { 1 };
+    return OfEng { w: w, pend: pend, act: kept, spec: s.spec, delay: delay,
+        pcs: pcs, emit: 1, fin: f };
+}

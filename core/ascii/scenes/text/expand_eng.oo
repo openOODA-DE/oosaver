@@ -1,0 +1,34 @@
+// # expand_eng — incremental engine facade for expand
+//
+// Logline: Lazy state/step wrapper so the runtime session advances expand
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses expand_build plus the shared engine tick/render
+// the parity driver uses; scene math is unchanged.
+// Beats:
+//   1. expand_eng_new builds the world once, at session construction.
+//   2. expand_eng_step mirrors one run-loop iteration: tick + render + fin.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "text/scene_expand.oo";
+
+pub type ExEng = struct { w: World, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn expand_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                      lines: List[String], seed: Int) -> ExEng {
+    let _ = cells;
+    let w: World = expand_build(w_input(info, lines, rng_seed(seed)), info);
+    return ExEng { w: w, pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn expand_eng_step(s: ExEng, info: CanvasInfo) -> ExEng {
+    let w: World = eng_update(s.w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if list_len(w.active) > 0 { 0 } else { 1 };
+    return ExEng { w: w, pcs: pcs, emit: 1, fin: f };
+}

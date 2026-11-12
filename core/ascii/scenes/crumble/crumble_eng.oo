@@ -1,0 +1,73 @@
+// # crumble_eng — incremental engine facade for crumble
+//
+// Logline: Lazy state/step wrapper so the runtime session advances crumble
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses cr_build/cr_fall/cr_vacuum/cr_reset_pass plus
+// tick/render.
+// Beats:
+//   1. crumble_eng_new builds the world and stage counters.
+//   2. crumble_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "crumble/scene_crumble.oo";
+
+pub type CrEng = struct { w: World, pend: List[Int], unvac: List[Int],
+    ids: List[Int], stage: Int, delay: Int, mn: Int, mx: Int, gmax: Int,
+    reset: Int, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn crumble_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                       lines: List[String], seed: Int) -> CrEng {
+    let _ = cells;
+    let b: CrB = cr_build(w_input(info, lines, rng_seed(seed)), info);
+    return CrEng { w: b.w, pend: b.pend, unvac: b.unvac, ids: b.ids, stage: 0,
+        delay: 4, mn: 2, mx: 4, gmax: 3, reset: 0, pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn crumble_eng_step(s: CrEng, info: CanvasInfo) -> CrEng {
+    let mut w: World = s.w;
+    let mut pend: List[Int] = s.pend;
+    let mut unvac: List[Int] = s.unvac;
+    let mut stage: Int = s.stage;
+    let mut delay: Int = s.delay;
+    let mut mn: Int = s.mn;
+    let mut mx: Int = s.mx;
+    let mut gmax: Int = s.gmax;
+    let mut reset: Int = s.reset;
+    if stage == 0 {
+        let q: CrS = cr_fall(w, pend, delay, mn, mx, gmax);
+        w = q.w;
+        pend = q.pend;
+        delay = q.delay;
+        mn = q.mn;
+        mx = q.mx;
+        gmax = q.gmax;
+        if list_len(pend) == 0 && list_len(w.active) == 0 { stage = 1; }
+    } else {
+        if stage == 1 {
+            let vac: CrV = cr_vacuum(w, unvac);
+            w = vac.w;
+            unvac = vac.unvac;
+            if list_len(w.active) == 0 { stage = 2; }
+        } else {
+            if reset == 0 {
+                w = cr_reset_pass(w, s.ids);
+                reset = 1;
+            }
+            if list_len(w.active) == 0 { stage = 3; }
+        }
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if stage != 3 { 0 } else { 1 };
+    return CrEng { w: w, pend: pend, unvac: unvac, ids: s.ids, stage: stage,
+        delay: delay, mn: mn, mx: mx, gmax: gmax, reset: reset, pcs: pcs,
+        emit: 1, fin: f };
+}

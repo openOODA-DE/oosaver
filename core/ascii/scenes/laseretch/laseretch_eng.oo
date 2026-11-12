@@ -1,0 +1,71 @@
+// # laseretch_eng — incremental engine facade for laseretch
+//
+// Logline: Lazy state/step wrapper so the runtime session advances laseretch
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses the le_* builders plus tick/render.
+// Beats:
+//   1. laseretch_eng_new builds the world, etch order, and beam pool.
+//   2. laseretch_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "laseretch/scene_laseretch.oo";
+import "laseretch/le_build.oo";
+import "laseretch/le_laser.oo";
+
+pub type LeEng = struct { w: World, pend: List[Int], beam: List[Int],
+    av0: List[Int], pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn laseretch_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                         lines: List[String], seed: Int) -> LeEng {
+    let _ = cells;
+    let mut w: World = w_input(info, lines, rng_seed(seed));
+    w = le_scenes(w, info);
+    let grid: List[Int] = le_grid(w);
+    let lo: LeOrder = le_pending(w, grid, info);
+    w = w_rng(w, lo.r);
+    let lp: LeP = le_pool(w);
+    let lb: LeB = le_beam(lp);
+    w = lb.w;
+    let mut k: Int = 0;
+    while k < list_len(lb.beam) {
+        w = w_active_add(w, list_get(lb.beam, k));
+        k = k + 1;
+    }
+    return LeEng { w: w, pend: lo.order, beam: lb.beam, av0: lb.avail,
+        pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn laseretch_eng_step(s: LeEng, info: CanvasInfo) -> LeEng {
+    let mut w: World = s.w;
+    let mut av0: List[Int] = s.av0;
+    let rel: LeS = le_release(w, s.pend, s.beam, av0);
+    w = rel.w;
+    let pend: List[Int] = rel.pend;
+    av0 = rel.avail;
+    let mut b: Int = 0;
+    if list_len(pend) == 0 {
+        while b < list_len(s.beam) {
+            w = w_set_vis(w, list_get(s.beam, b), 0);
+            b = b + 1;
+        }
+    } else {
+        while b < list_len(s.beam) {
+            w = w_active_add(w, list_get(s.beam, b));
+            b = b + 1;
+        }
+    }
+    w = eng_update(w);
+    let d: LeP = le_drain(w, av0);
+    let pcs: List[PaintCell] = eng_render(d.w, info.cols, info.rows);
+    let f: Int = if list_len(pend) > 0 || list_len(d.w.active) > 0 { 0 }
+        else { 1 };
+    return LeEng { w: d.w, pend: pend, beam: s.beam, av0: d.avail, pcs: pcs,
+        emit: 1, fin: f };
+}

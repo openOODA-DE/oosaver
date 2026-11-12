@@ -1,0 +1,66 @@
+// # bpath_eng — incremental engine facade for binarypath
+//
+// Logline: Lazy state/step wrapper so the runtime session advances binarypath
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses bp_build/bp_travel_all/bp_wipe2 plus
+// tick/render. The parity driver's post-loop re-emit lives in the run page
+// and is parity-only; the runtime simply holds the final step's frame.
+// Beats:
+//   1. bpath_eng_new builds the world, travel plan, and wipe queue.
+//   2. bpath_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "bpath/scene_binarypath.oo";
+import "bpath/bp_state.oo";
+
+pub type BpEng = struct { w: World, wq: List[Int], g: Groups,
+    pend: List[BRep], areps: List[BRep], bs_max: Int, phase: Int, done: Int,
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn bpath_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> BpEng {
+    let _ = cells;
+    let bs: BRS = bp_build(w_input(info, lines, rng_seed(seed)), info);
+    let g: Groups = groups_of(bs.w, collect_ids(bs.w, 1), 2, 0, 0, 1);
+    let mut wq: List[Int] = list_new();
+    let mut gi: Int = 0;
+    while gi < list_len(g.keys) { wq = list_push(wq, gi); gi = gi + 1; }
+    return BpEng { w: bs.w, wq: wq, g: g, pend: bs.pend, areps: list_new(),
+        bs_max: bs.max, phase: 0, done: 0, pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn bpath_eng_step(s: BpEng, info: CanvasInfo) -> BpEng {
+    let mut w: World = s.w;
+    let mut wq: List[Int] = s.wq;
+    let mut pend: List[BRep] = s.pend;
+    let mut areps: List[BRep] = s.areps;
+    let mut phase: Int = s.phase;
+    let mut done: Int = s.done;
+    if phase == 0 {
+        let t: BTA = bp_travel_all(w, pend, areps, s.bs_max);
+        w = t.w;
+        pend = t.pend;
+        areps = t.areps;
+        if list_len(w.active) == 0 { phase = 1; }
+    }
+    if phase == 1 {
+        let wq2: WQ = bp_wipe2(w, s.g, wq);
+        w = wq2.w;
+        wq = wq2.q;
+        done = wq2.done;
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if done == 0 || list_len(w.active) > 0 { 0 } else { 1 };
+    return BpEng { w: w, wq: wq, g: s.g, pend: pend, areps: areps,
+        bs_max: s.bs_max, phase: phase, done: done, pcs: pcs, emit: 1, fin: f };
+}

@@ -1,0 +1,52 @@
+// # rings_eng — incremental engine facade for rings
+//
+// Logline: Lazy state/step wrapper so the runtime session advances rings
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses rg_setup/rg_step plus tick/render.
+// Beats:
+//   1. rings_eng_new builds the ring state once.
+//   2. rings_eng_step mirrors one run-loop iteration including pend
+//      bookkeeping.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "rings/scene_rings.oo";
+import "rings/rg_state.oo";
+import "rings/rg_step.oo";
+import "rings/rg_geom.oo";
+
+pub type RgEng = struct { s: RgS, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn rings_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> RgEng {
+    let _ = cells;
+    return RgEng { s: rg_setup(w_input(info, lines, rng_seed(seed)), info),
+        pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn rings_eng_step(s: RgEng, info: CanvasInfo) -> RgEng {
+    let q: RgS = rg_step(s.s);
+    let mut w: World = eng_update(q.w);
+    let mut p: Int = 0;
+    while p < list_len(w.pend) {
+        let cid: Int = list_get(w.pend, p);
+        let cb: Int = list_get(w.pend, p + 1);
+        if cb == 0 { w = w_set_vis(w, cid, 0); }
+        p = p + 3;
+    }
+    w = World { chars: w.chars, active: w.active, rng: w.rng,
+        next_id: w.next_id, pend: list_new() };
+    let s2: RgS = RgS { w: w, phase: q.phase, t_init: q.t_init,
+        t_spin: q.t_spin, t_disp: q.t_disp, cyc: q.cyc, idc: q.idc,
+        ccw: q.ccw, rb: q.rb, col: q.col, spd: q.spd, rch: q.rch,
+        rcb: q.rcb, lrp: q.lrp, nrc: q.nrc, fcm: q.fcm, ids: q.ids,
+        gap: q.gap };
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if s2.phase != 4 { 0 } else { 1 };
+    return RgEng { s: s2, pcs: pcs, emit: 1, fin: f };
+}

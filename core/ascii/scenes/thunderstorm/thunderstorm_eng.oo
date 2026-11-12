@@ -1,0 +1,42 @@
+// # thunderstorm_eng — incremental engine facade for thunderstorm
+//
+// Logline: Lazy state/step wrapper so the runtime session advances
+// thunderstorm without a pre-rendered tape.
+// Setup: Pure compute. Reuses th_build/th_step plus tick/render.
+// Beats:
+//   1. thunderstorm_eng_new builds the storm state and text ids.
+//   2. thunderstorm_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "thunderstorm/scene_thunderstorm.oo";
+import "thunderstorm/th_build.oo";
+import "thunderstorm/th_step.oo";
+import "thunderstorm/th_state.oo";
+
+pub type ThEng = struct { s: ThS, ids: List[Int], pcs: List[PaintCell],
+    emit: Int, fin: Int };
+
+pub fn thunderstorm_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                            lines: List[String], seed: Int) -> ThEng {
+    let _ = cells;
+    let _ = seed;
+    let s: ThS = th_build(info, lines);
+    return ThEng { s: s, ids: th_text_ids(s.w, info), pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn thunderstorm_eng_step(s: ThEng, info: CanvasInfo) -> ThEng {
+    let s2: ThS = th_step(s.s, s.ids, info);
+    let pcs: List[PaintCell] = eng_render(s2.w, info.cols, info.rows);
+    let s3: ThS = ThS { w: s2.w, phase: s2.phase, delay: s2.delay,
+        spdelay: s2.spdelay, rain: s2.rain, spark: s2.spark, pend: s2.pend,
+        avail_s: s2.avail_s, act_s: s2.act_s, glow_p: s2.glow_p,
+        sgrad: s2.sgrad, in_prog: s2.in_prog, branch: s2.branch,
+        sstart: s2.sstart, frames: s2.frames + 1 };
+    let f: Int = if s3.phase == 3 && list_len(s3.w.active) == 0 { 1 } else { 0 };
+    return ThEng { s: s3, ids: s.ids, pcs: pcs, emit: 1, fin: f };
+}

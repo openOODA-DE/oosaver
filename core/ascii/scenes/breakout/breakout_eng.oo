@@ -1,0 +1,30 @@
+// # breakout_eng — incremental engine facade for breakout
+//
+// Logline: Lazy state/step wrapper so the runtime session advances breakout without
+// a pre-rendered tape.
+// Setup: Pure compute. Reuses breakout_new/breakout_next/breakout_advance from the scene
+// page; the parity digest driver there is untouched.
+// Beats:
+//   1. breakout_eng_new holds the initial scene state plus frame bookkeeping.
+//   2. breakout_eng_step renders the current state, advances one engine step, and
+//      reports emit/fin like the run driver's break-on-empty loop.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "breakout/scene_breakout.oo";
+
+pub type BreakoutEng = struct { s: Breakout, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn breakout_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                    lines: List[String], seed: Int) -> BreakoutEng {
+    let _ = lines;
+    let _ = seed;
+    return BreakoutEng { s: breakout_new(cells, info), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn breakout_eng_step(s: BreakoutEng, info: CanvasInfo) -> BreakoutEng {
+    let _ = info;
+    let pcs: List[PaintCell] = breakout_next(s.s);
+    if list_len(pcs) == 0 { return BreakoutEng { s: s.s, pcs: pcs, emit: 0, fin: 1 }; }
+    return BreakoutEng { s: breakout_advance(s.s), pcs: pcs, emit: 1, fin: 0 };
+}

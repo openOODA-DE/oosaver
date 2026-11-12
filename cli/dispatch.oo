@@ -35,7 +35,7 @@ type SvcReq = struct {
 };
 
 fn dispatch_service_ctl(fs_r:&FsReadCap, fs:&FsCap, fw:&FsWriteCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap,
-    ar:&ArenaCap, req: SvcReq)-> Int {
+    req: SvcReq)-> Int {
     let verb: String = req.verb;
     let rest: List[String] = req.rest;
     if verb == "start" {
@@ -43,7 +43,7 @@ fn dispatch_service_ctl(fs_r:&FsReadCap, fs:&FsCap, fw:&FsWriteCap, proc:&Proces
             println("Daemon response: Activated screensaver");
             return 0;
         }
-        return cmd_preview(fs_r, proc, ffi, time, ar, rest);
+        return cmd_preview(fs_r, proc, ffi, time, rest);
     }
     if verb == "stop" || verb == "sleep" || verb == "quit" {
         return cmd_saver_ctl(fs_r, fs, fw, proc, verb);
@@ -73,7 +73,7 @@ fn dispatch_service_ctl(fs_r:&FsReadCap, fs:&FsCap, fw:&FsWriteCap, proc:&Proces
 }
 
 pub fn oosaver_cli_run(fs_r:&FsReadCap, fs_w:&FsWriteCap, fs:&FsCap,
-    proc:&ProcessCap, time:&TimeCap, ffi:&FfiCap, ar:&ArenaCap, args: List[String])-> Int {
+    proc:&ProcessCap, time:&TimeCap, ffi:&FfiCap, args: List[String])-> Int {
     let link: OothemeLink = oosaver_ootheme_extract(args);
     let cargs: List[String] = link.args;
     let theme: String = link.theme;
@@ -96,9 +96,9 @@ pub fn oosaver_cli_run(fs_r:&FsReadCap, fs_w:&FsWriteCap, fs:&FsCap,
     if verb == "--json" { return cli_json("oosaver"); }
     if verb == "list" { return cmd_list(rest); }
     if verb == "text" { return cmd_text(fs_r, proc, ffi, rest); }
-    if verb == "preview" { return cmd_preview(fs_r, proc, ffi, time, ar, rest); }
+    if verb == "preview" { return cmd_preview(fs_r, proc, ffi, time, rest); }
     if verb == "set" { return cmd_set(fs_r, fs, fs_w, proc, rest); }
-    if verb == "tui" || verb == "ui" { return tui_run(fs_r, fs, fs_w, proc, ffi, time, ar); }
+    if verb == "tui" || verb == "ui" { return tui_run(fs_r, fs, fs_w, proc, ffi, time); }
     if verb == "__tick" { return ctl_tick_loop(fs_r, fs, fs_w, proc, time, "oosaver"); }
     if verb == "status" { return cmd_status(fs_r, fs, fs_w, proc); }
     if verb == "inhibitors" { return cmd_inhibitors(fs_r, fs, fs_w, proc); }
@@ -106,5 +106,5 @@ pub fn oosaver_cli_run(fs_r:&FsReadCap, fs_w:&FsWriteCap, fs:&FsCap,
     if verb == "config" { return cmd_config(fs_r, proc); }
     if verb == "doctor" { return cmd_doctor(fs_r, fs, fs_w, proc, rest); }
     if verb == "about" { return oosaver_about(fs_r, proc, theme, rest); }
-    return dispatch_service_ctl(fs_r, fs, fs_w, proc, ffi, time, ar, SvcReq { verb: verb, rest: rest });
+    return dispatch_service_ctl(fs_r, fs, fs_w, proc, ffi, time, SvcReq { verb: verb, rest: rest });
 }

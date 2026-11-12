@@ -8,6 +8,7 @@
 //   3. Loop frames with DPMS wake checks and bounded sleep between presents.
 
 import "core/ascii/engine.oo";
+import "core/ascii/port_session.oo";
 import "protocol.oo";
 import "layer_shell.oo";
 import "idle_notify.oo";
@@ -36,8 +37,17 @@ pub fn wayland_ctl_new(timeout_s: Int, frames: Int) -> PresenterCtl {
 pub fn wayland_tty_present(ffi: &FfiCap, time: &TimeCap, cols: Int, rows: Int, scene: String, frames: Int, fps_ms: Int) -> Int {
     let mut i: Int = 0;
     let mut sent: Int = 0;
+    let use_port: Bool = port_has(scene);
+    let mut ps: PortSession = port_session_new("aurora", 4, 4, "", now_ms(time));
     while i < frames {
-        let frame: String = engine_preview_frame(cols, rows, scene, i, false);
+        let mut frame: String = "";
+        if use_port {
+            if i == 0 { ps = port_session_new(scene, cols, rows, "FEDORA", now_ms(time)); }
+            ps = port_session_next(ps);
+            frame = port_session_frame(ps);
+        } else {
+            frame = engine_wordmark_frame(cols, rows, scene, i);
+        }
         let w: Result[String, String] = oo_tui_write(ffi, frame);
         if w.is_err() { return sent; }
         sent = sent + 1;

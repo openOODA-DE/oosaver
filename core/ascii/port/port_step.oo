@@ -1,0 +1,136 @@
+// # Port Step — Single-Step Engine Dispatch
+//
+// Logline: Advances whichever scene engine is live in a PortState by exactly
+// one engine step, and reads back that engine's latest frame cells and
+// finished flag.
+// Setup: Pure state threading. Every scene engine shares the pcs/fin fields
+// so the session loop stays engine-agnostic.
+// Beats:
+//   1. port_eng_step dispatches one step by scene name.
+//   2. port_eng_out lifts the active engine's pcs/fin into EngOut.
+
+import "core/ascii/eng/grid_cells.oo";
+import "port_state.oo";
+
+pub type EngOut = struct { pcs: List[PaintCell], fin: Int };
+
+pub fn port_eng_step(st: PortState) -> PortState {
+    let mut s: PortState = st;
+    let n: String = st.name;
+    if n == "plasma" { s.plasma = plasma_eng_step(st.plasma, st.info); }
+    if n == "ripple" { s.ripple = ripple_eng_step(st.ripple, st.info); }
+    if n == "moire" { s.moire = moire_eng_step(st.moire, st.info); }
+    if n == "tunnel" { s.tunnel = tunnel_eng_step(st.tunnel, st.info); }
+    if n == "aurora" { s.aurora = aurora_eng_step(st.aurora, st.info); }
+    if n == "chaos" { s.chaos = chaos_eng_step(st.chaos, st.info); }
+    if n == "radar" { s.radar = radar_eng_step(st.radar, st.info); }
+    if n == "cosmos" { s.cosmos = cosmos_eng_step(st.cosmos, st.info); }
+    if n == "mystify" { s.mystify = mystify_eng_step(st.mystify, st.info); }
+    if n == "metaballs" { s.metaballs = metaballs_eng_step(st.metaballs, st.info); }
+    if n == "breakout" { s.breakout = breakout_eng_step(st.breakout, st.info); }
+    if n == "life" { s.life = life_eng_step(st.life, st.info); }
+    if n == "pipes" { s.pipes = pipes_eng_step(st.pipes, st.info); }
+    if n == "tetris" { s.tetris = tetris_eng_step(st.tetris, st.info); }
+    if n == "expand" { s.expand = expand_eng_step(st.expand, st.info); }
+    if n == "wipe" { s.wipe = wipe_eng_step(st.wipe, st.info); }
+    if n == "sweep" { s.sweep = sweep_eng_step(st.sweep, st.info); }
+    if n == "slide" { s.slide = slide_eng_step(st.slide, st.info); }
+    if n == "middleout" { s.middleout = middleout_eng_step(st.middleout, st.info); }
+    if n == "slice" { s.slice = slice_eng_step(st.slice, st.info); }
+    if n == "colorshift" { s.colorshift = colorshift_eng_step(st.colorshift, st.info); }
+    if n == "scattered" { s.scattered = scattered_eng_step(st.scattered, st.info); }
+    if n == "spray" { s.spray = spray_eng_step(st.spray, st.info); }
+    if n == "fireworks" { s.fireworks = fireworks_eng_step(st.fireworks, st.info); }
+    if n == "errorcorrect" { s.errorcorrect = errorcorrect_eng_step(st.errorcorrect, st.info); }
+    if n == "rain" { s.rain = rain_eng_step(st.rain, st.info); }
+    if n == "pour" { s.pour = pour_eng_step(st.pour, st.info); }
+    if n == "randomsequence" { s.randomsequence = randomsequence_eng_step(st.randomsequence, st.info); }
+    if n == "waves" { s.waves = waves_eng_step(st.waves, st.info); }
+    if n == "bubbles" { s.bubbles = bubbles_eng_step(st.bubbles, st.info); }
+    if n == "swarm" { s.swarm = swarm_eng_step(st.swarm, st.info); }
+    if n == "thunderstorm" { s.thunderstorm = thunderstorm_eng_step(st.thunderstorm, st.info); }
+    if n == "unstable" { s.unstable = unstable_eng_step(st.unstable, st.info); }
+    if n == "beams" { s.beams = beams_eng_step(st.beams, st.info); }
+    if n == "blackhole" { s.blackhole = blackhole_eng_step(st.blackhole, st.info); }
+    if n == "bouncyballs" { s.bouncyballs = bouncyballs_eng_step(st.bouncyballs, st.info); }
+    if n == "binarypath" { s.binarypath = binarypath_eng_step(st.binarypath, st.info); }
+    if n == "burn" { s.burn = burn_eng_step(st.burn, st.info); }
+    if n == "crumble" { s.crumble = crumble_eng_step(st.crumble, st.info); }
+    if n == "decrypt" { s.decrypt = decrypt_eng_step(st.decrypt, st.info); }
+    if n == "highlight" { s.highlight = highlight_eng_step(st.highlight, st.info); }
+    if n == "laseretch" { s.laseretch = laseretch_eng_step(st.laseretch, st.info); }
+    if n == "matrix" { s.matrix = matrix_eng_step(st.matrix, st.info); }
+    if n == "orbittingvolley" { s.orbittingvolley = orbittingvolley_eng_step(st.orbittingvolley, st.info); }
+    if n == "overflow" { s.overflow = overflow_eng_step(st.overflow, st.info); }
+    if n == "print" { s.print = print_eng_step(st.print, st.info); }
+    if n == "rings" { s.rings = rings_eng_step(st.rings, st.info); }
+    if n == "smoke" { s.smoke = smoke_eng_step(st.smoke, st.info); }
+    if n == "spotlights" { s.spotlights = spotlights_eng_step(st.spotlights, st.info); }
+    if n == "synthgrid" { s.synthgrid = synthgrid_eng_step(st.synthgrid, st.info); }
+    if n == "vhstape" { s.vhstape = vhstape_eng_step(st.vhstape, st.info); }
+    return s;
+}
+
+fn port_eng_out_a(st: PortState) -> EngOut {
+    let n: String = st.name;
+    if n == "plasma" { return EngOut { pcs: st.plasma.pcs, fin: st.plasma.fin }; }
+    if n == "ripple" { return EngOut { pcs: st.ripple.pcs, fin: st.ripple.fin }; }
+    if n == "moire" { return EngOut { pcs: st.moire.pcs, fin: st.moire.fin }; }
+    if n == "tunnel" { return EngOut { pcs: st.tunnel.pcs, fin: st.tunnel.fin }; }
+    if n == "aurora" { return EngOut { pcs: st.aurora.pcs, fin: st.aurora.fin }; }
+    if n == "chaos" { return EngOut { pcs: st.chaos.pcs, fin: st.chaos.fin }; }
+    if n == "radar" { return EngOut { pcs: st.radar.pcs, fin: st.radar.fin }; }
+    if n == "cosmos" { return EngOut { pcs: st.cosmos.pcs, fin: st.cosmos.fin }; }
+    if n == "mystify" { return EngOut { pcs: st.mystify.pcs, fin: st.mystify.fin }; }
+    if n == "metaballs" { return EngOut { pcs: st.metaballs.pcs, fin: st.metaballs.fin }; }
+    if n == "breakout" { return EngOut { pcs: st.breakout.pcs, fin: st.breakout.fin }; }
+    if n == "life" { return EngOut { pcs: st.life.pcs, fin: st.life.fin }; }
+    if n == "pipes" { return EngOut { pcs: st.pipes.pcs, fin: st.pipes.fin }; }
+    if n == "tetris" { return EngOut { pcs: st.tetris.pcs, fin: st.tetris.fin }; }
+    if n == "expand" { return EngOut { pcs: st.expand.pcs, fin: st.expand.fin }; }
+    if n == "wipe" { return EngOut { pcs: st.wipe.pcs, fin: st.wipe.fin }; }
+    if n == "sweep" { return EngOut { pcs: st.sweep.pcs, fin: st.sweep.fin }; }
+    if n == "slide" { return EngOut { pcs: st.slide.pcs, fin: st.slide.fin }; }
+    if n == "middleout" { return EngOut { pcs: st.middleout.pcs, fin: st.middleout.fin }; }
+    if n == "slice" { return EngOut { pcs: st.slice.pcs, fin: st.slice.fin }; }
+    if n == "colorshift" { return EngOut { pcs: st.colorshift.pcs, fin: st.colorshift.fin }; }
+    if n == "scattered" { return EngOut { pcs: st.scattered.pcs, fin: st.scattered.fin }; }
+    if n == "spray" { return EngOut { pcs: st.spray.pcs, fin: st.spray.fin }; }
+    if n == "fireworks" { return EngOut { pcs: st.fireworks.pcs, fin: st.fireworks.fin }; }
+    if n == "errorcorrect" { return EngOut { pcs: st.errorcorrect.pcs, fin: st.errorcorrect.fin }; }
+    return port_eng_out_b(st);
+}
+
+fn port_eng_out_b(st: PortState) -> EngOut {
+    let n: String = st.name;
+    if n == "rain" { return EngOut { pcs: st.rain.pcs, fin: st.rain.fin }; }
+    if n == "pour" { return EngOut { pcs: st.pour.pcs, fin: st.pour.fin }; }
+    if n == "randomsequence" { return EngOut { pcs: st.randomsequence.pcs, fin: st.randomsequence.fin }; }
+    if n == "waves" { return EngOut { pcs: st.waves.pcs, fin: st.waves.fin }; }
+    if n == "bubbles" { return EngOut { pcs: st.bubbles.pcs, fin: st.bubbles.fin }; }
+    if n == "swarm" { return EngOut { pcs: st.swarm.pcs, fin: st.swarm.fin }; }
+    if n == "thunderstorm" { return EngOut { pcs: st.thunderstorm.pcs, fin: st.thunderstorm.fin }; }
+    if n == "unstable" { return EngOut { pcs: st.unstable.pcs, fin: st.unstable.fin }; }
+    if n == "beams" { return EngOut { pcs: st.beams.pcs, fin: st.beams.fin }; }
+    if n == "blackhole" { return EngOut { pcs: st.blackhole.pcs, fin: st.blackhole.fin }; }
+    if n == "bouncyballs" { return EngOut { pcs: st.bouncyballs.pcs, fin: st.bouncyballs.fin }; }
+    if n == "binarypath" { return EngOut { pcs: st.binarypath.pcs, fin: st.binarypath.fin }; }
+    if n == "burn" { return EngOut { pcs: st.burn.pcs, fin: st.burn.fin }; }
+    if n == "crumble" { return EngOut { pcs: st.crumble.pcs, fin: st.crumble.fin }; }
+    if n == "decrypt" { return EngOut { pcs: st.decrypt.pcs, fin: st.decrypt.fin }; }
+    if n == "highlight" { return EngOut { pcs: st.highlight.pcs, fin: st.highlight.fin }; }
+    if n == "laseretch" { return EngOut { pcs: st.laseretch.pcs, fin: st.laseretch.fin }; }
+    if n == "matrix" { return EngOut { pcs: st.matrix.pcs, fin: st.matrix.fin }; }
+    if n == "orbittingvolley" { return EngOut { pcs: st.orbittingvolley.pcs, fin: st.orbittingvolley.fin }; }
+    if n == "overflow" { return EngOut { pcs: st.overflow.pcs, fin: st.overflow.fin }; }
+    if n == "print" { return EngOut { pcs: st.print.pcs, fin: st.print.fin }; }
+    if n == "rings" { return EngOut { pcs: st.rings.pcs, fin: st.rings.fin }; }
+    if n == "smoke" { return EngOut { pcs: st.smoke.pcs, fin: st.smoke.fin }; }
+    if n == "spotlights" { return EngOut { pcs: st.spotlights.pcs, fin: st.spotlights.fin }; }
+    if n == "synthgrid" { return EngOut { pcs: st.synthgrid.pcs, fin: st.synthgrid.fin }; }
+    return EngOut { pcs: st.vhstape.pcs, fin: st.vhstape.fin };
+}
+
+pub fn port_eng_out(st: PortState) -> EngOut {
+    return port_eng_out_a(st);
+}

@@ -4,10 +4,10 @@
 // Setup: Pure draw over core/grid plus the draw/ post-processing pages. Operates with zero ambient authority.
 // Beats:
 //   1. Convert the PaintCell grid to a CellGrid in one pass (glyph, packed RGB inks).
-//   2. Apply post_apply (diagonal specular gleam plus 3-layer parallax starfield on empty cells).
-//   3. Stamp the bevelled wordmark banner when the scene has settled, then emit ANSI.
+//   2. Stamp the bevelled wordmark banner when the scene has settled.
+//   3. Apply post_apply (diagonal specular gleam plus 3-layer parallax starfield on empty cells), then emit ANSI.
 
-import "tests/oo/grid_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
 import "core/grid.oo";
 import "core/ascii/port_render.oo";
 import "core/ascii/draw/post_fx.oo";
@@ -39,11 +39,15 @@ pub fn port_to_grid(pcs: &List[PaintCell], cols: Int, rows: Int) -> CellGrid {
     return CellGrid { cols: cols, rows: rows, chs: chs, fgs: fgs, bgs: bgs, bolds: bolds };
 }
 
-pub fn port_compose(pcs: &List[PaintCell], cols: Int, rows: Int, tick: Int, settled: Bool, wm: String) -> String {
+pub fn port_compose_grid(pcs: &List[PaintCell], cols: Int, rows: Int, tick: Int, settled: Bool, wm: String) -> CellGrid {
     let mut g: CellGrid = port_to_grid(pcs, cols, rows);
-    g = post_apply(g, tick);
     if settled && wm != "" {
         g = wm_render(g, wm, tick);
     }
-    return ansi_frame(g);
+    g = post_apply(g, tick);
+    return g;
+}
+
+pub fn port_compose(pcs: &List[PaintCell], cols: Int, rows: Int, tick: Int, settled: Bool, wm: String) -> String {
+    return ansi_frame(port_compose_grid(pcs, cols, rows, tick, settled, wm));
 }

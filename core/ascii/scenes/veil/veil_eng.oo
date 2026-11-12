@@ -1,0 +1,46 @@
+// # veil_eng — incremental engine facade for the veil family
+//
+// Logline: Lazy state/step wrappers for aurora and chaos so the runtime
+// session advances these scenes without a pre-rendered tape.
+// Setup: Pure compute. Reuses each scene's own new/next/advance functions; the
+// parity digest driver in each scene page is untouched.
+// Beats:
+//   1. *_eng_new holds the initial scene state plus frame bookkeeping.
+//   2. *_eng_step renders the current state, advances one engine step, and
+//      reports emit/fin like the run driver's break-on-empty loop.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "veil/scene_aurora.oo";
+import "veil/scene_chaos.oo";
+
+pub type AuEng = struct { s: Aurora, pcs: List[PaintCell], emit: Int, fin: Int };
+pub type ChEng = struct { s: Chaos, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn aurora_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                      lines: List[String], seed: Int) -> AuEng {
+    let _ = lines;
+    let _ = seed;
+    return AuEng { s: aurora_new(cells, info), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn aurora_eng_step(s: AuEng, info: CanvasInfo) -> AuEng {
+    let _ = info;
+    let pcs: List[PaintCell] = aurora_next(s.s);
+    if list_len(pcs) == 0 { return AuEng { s: s.s, pcs: pcs, emit: 0, fin: 1 }; }
+    return AuEng { s: aurora_advance(s.s), pcs: pcs, emit: 1, fin: 0 };
+}
+
+pub fn chaos_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> ChEng {
+    let _ = lines;
+    let _ = seed;
+    return ChEng { s: chaos_new(cells, info), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn chaos_eng_step(s: ChEng, info: CanvasInfo) -> ChEng {
+    let _ = info;
+    let pcs: List[PaintCell] = chaos_next(s.s);
+    if list_len(pcs) == 0 { return ChEng { s: s.s, pcs: pcs, emit: 0, fin: 1 }; }
+    return ChEng { s: chaos_advance(s.s), pcs: pcs, emit: 1, fin: 0 };
+}

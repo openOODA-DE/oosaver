@@ -7,7 +7,7 @@
 //   2. Walk the grid top-down, emitting SGR colour runs only on change.
 //   3. Frame the result with cursor-home and a final reset.
 
-import "tests/oo/grid_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
 import "core/ascii/layout/render.oo";
 
 pub fn port_glyph(ord_v: Int) -> String {

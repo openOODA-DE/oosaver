@@ -1,0 +1,69 @@
+// # orbittingvolley_eng — incremental engine facade for orbittingvolley
+//
+// Logline: Lazy state/step wrapper so the runtime session advances
+// orbittingvolley without a pre-rendered tape.
+// Setup: Pure compute. Reuses ov_build/ov_step plus tick/render.
+// Beats:
+//   1. orbittingvolley_eng_new builds the volley state and colormap.
+//   2. orbittingvolley_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engine/gradient_map.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "orbittingvolley/scene_orbittingvolley.oo";
+import "orbittingvolley/ov_get.oo";
+
+pub type OvEng = struct { s: VolS, lcmap: List[Int], nin: Int,
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn orbittingvolley_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                               lines: List[String], seed: Int) -> OvEng {
+    let _ = cells;
+    let spec: List[Int] = gradient_new(list_push(list_push(list_new(),
+        16752988), 4510866), list_push(list_new(), 12), 0);
+    let lcmap: List[Int] = cmap_r(spec, info.bottom, info.top, info.left,
+        info.right);
+    let wq: World = w_input(info, lines, rng_seed(seed));
+    let nin: Int = list_len(collect_ids(wq, 1));
+    let s0: VolS = ov_build(w_input(info, lines, rng_seed(seed)), info);
+    return OvEng { s: s0, lcmap: lcmap, nin: nin, pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn orbittingvolley_eng_step(s: OvEng, info: CanvasInfo) -> OvEng {
+    let mut w: World = vg_w(s.s);
+    let done: Int = vg_done(s.s);
+    let any_mag: Int = list_len(vg_vma(s.s)) + list_len(vg_vmb(s.s)) +
+        list_len(vg_vmc(s.s)) + list_len(vg_vmd(s.s));
+    if any_mag > 0 || list_len(w.active) > 1 {
+        let st: VolS = ov_step(s.s, s.lcmap, info, s.nin);
+        if vg_done(st) == 1 {
+            return OvEng { s: st, lcmap: s.lcmap, nin: s.nin,
+                pcs: list_new(), emit: 0, fin: 1 };
+        }
+        let w2: World = eng_update(vg_w(st));
+        let s2: VolS = VolS { w: w2, vma: vg_vma(st), vmb: vg_vmb(st),
+            vmc: vg_vmc(st), vmd: vg_vmd(st), delay: vg_delay(st),
+            done: vg_done(st) };
+        let pcs: List[PaintCell] = eng_render(w2, info.cols, info.rows);
+        return OvEng { s: s2, lcmap: s.lcmap, nin: s.nin, pcs: pcs,
+            emit: 1, fin: 0 };
+    }
+    let mch: Int = list_len(w.chars) - 4;
+    let mut li: Int = 0;
+    while li < 4 {
+        w = w_set_vis(w, mch + li, 0);
+        li = li + 1;
+    }
+    let s3: VolS = VolS { w: w, vma: vg_vma(s.s), vmb: vg_vmb(s.s),
+        vmc: vg_vmc(s.s), vmd: vg_vmd(s.s), delay: vg_delay(s.s), done: 1 };
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    return OvEng { s: s3, lcmap: s.lcmap, nin: s.nin, pcs: pcs,
+        emit: 1, fin: 1 };
+}

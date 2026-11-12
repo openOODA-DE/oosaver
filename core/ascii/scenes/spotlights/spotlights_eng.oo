@@ -1,0 +1,92 @@
+// # spotlights_eng — incremental engine facade for spotlights
+//
+// Logline: Lazy state/step wrapper so the runtime session advances
+// spotlights without a pre-rendered tape.
+// Setup: Pure compute. Reuses lite_setup/lite_illuminate plus tick/render.
+// Beats:
+//   1. spotlights_eng_new builds the world and search state.
+//   2. spotlights_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/float_conv.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "spotlights/scene_spotlights.oo";
+import "spotlights/lite_seek.oo";
+import "burn/bn_prims.oo";
+
+pub type SpEng = struct { w: World, grid: List[Int], spots: List[Int],
+    bright: List[Int], dark: List[Int], illum: List[Int], range_: Int,
+    search: Int, searching: Int, complete: Int, limitf: Int,
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn spotlights_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                          lines: List[String], seed: Int) -> SpEng {
+    let _ = cells;
+    let w0: World = w_input(info, lines, rng_seed(seed));
+    let setup: LiteD = lite_setup(w0, info);
+    let mut w: World = setup.w;
+    let mut s3: Int = 0;
+    while s3 < list_len(setup.spots) {
+        w = eng_act_path(w, list_get(setup.spots, s3), 0);
+        w = w_active_add(w, list_get(setup.spots, s3));
+        s3 = s3 + 1;
+    }
+    let mut limit: Int = info.right;
+    if info.top > limit { limit = info.top; }
+    return SpEng { w: w, grid: bn_grid(w0, info), spots: setup.spots,
+        bright: setup.bright, dark: setup.dark, illum: list_new(),
+        range_: setup.range_, search: 160, searching: 1, complete: 0,
+        limitf: trunc_i(int_to_f(limit) / 1.5), pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn spotlights_eng_step(s: SpEng, info: CanvasInfo) -> SpEng {
+    let mut w: World = s.w;
+    let mut spots: List[Int] = s.spots;
+    let mut range_: Int = s.range_;
+    let mut search: Int = s.search;
+    let mut searching: Int = s.searching;
+    let mut complete: Int = s.complete;
+    let st: LiteS = lite_illuminate(w, info, s.grid, spots, s.bright,
+        s.dark, s.illum, range_);
+    w = st.w;
+    let illum: List[Int] = st.illum;
+    if searching == 1 {
+        search = search - 1;
+        if search == 0 {
+            let mut s4: Int = 0;
+            while s4 < list_len(spots) {
+                w = eng_act_path(w, list_get(spots, s4), 11);
+                s4 = s4 + 1;
+            }
+            searching = 0;
+        }
+    }
+    let mut any_active: Int = 0;
+    let mut s5: Int = 0;
+    while s5 < list_len(spots) {
+        if list_get(w.chars, list_get(spots, s5)).a_path != 0 - 1 {
+            any_active = 1;
+        }
+        s5 = s5 + 1;
+    }
+    if any_active == 0 {
+        while list_len(spots) > 1 {
+            spots = list_slice(spots, 0, list_len(spots) - 1);
+        }
+        range_ = range_ + 1;
+        if range_ > s.limitf { complete = 1; }
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    return SpEng { w: w, grid: s.grid, spots: spots, bright: s.bright,
+        dark: s.dark, illum: illum, range_: range_, search: search,
+        searching: searching, complete: complete, limitf: s.limitf,
+        pcs: pcs, emit: 1, fin: complete };
+}

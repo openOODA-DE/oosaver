@@ -1,0 +1,51 @@
+// # rain_eng — incremental engine facade for rain
+//
+// Logline: Lazy state/step wrapper so the runtime session advances rain
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses rn_build/rn_release plus tick/render.
+// Beats:
+//   1. rain_eng_new builds the world and group order.
+//   2. rain_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "rain/scene_rain.oo";
+
+pub type RnEng = struct { w: World, g: Groups, gi: Int, pend: List[Int],
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn rain_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                    lines: List[String], seed: Int) -> RnEng {
+    let _ = cells;
+    let w: World = rn_build(w_input(info, lines, rng_seed(seed)), info);
+    let g: Groups = groups_of(w, collect_ids(w, 1), 1, 0, 0, 0);
+    return RnEng { w: w, g: g, gi: 0, pend: list_new(), pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn rain_eng_step(s: RnEng, info: CanvasInfo) -> RnEng {
+    let mut w: World = s.w;
+    let mut gi: Int = s.gi;
+    let mut pend: List[Int] = s.pend;
+    if list_len(pend) == 0 && gi < list_len(s.g.keys) {
+        pend = grp_win(s.g, gi);
+        gi = gi + 1;
+    }
+    if list_len(pend) > 0 {
+        let q: RnQ = rn_release(w, pend);
+        w = q.w;
+        pend = q.pend;
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if gi < list_len(s.g.keys) || list_len(pend) > 0 ||
+        list_len(w.active) > 0 { 0 } else { 1 };
+    return RnEng { w: w, g: s.g, gi: gi, pend: pend, pcs: pcs, emit: 1, fin: f };
+}

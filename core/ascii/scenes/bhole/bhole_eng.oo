@@ -1,0 +1,47 @@
+// # bhole_eng — incremental engine facade for blackhole
+//
+// Logline: Lazy state/step wrapper so the runtime session advances blackhole
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses bh_build/bh_frame plus tick/render.
+// Beats:
+//   1. bhole_eng_new builds the state and the distance colormap.
+//   2. bhole_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/gradient_map.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "bhole/scene_blackhole.oo";
+import "bhole/bh_state.oo";
+import "bhole/bh_build.oo";
+import "bhole/bh_phase.oo";
+
+pub type BhEng = struct { s: Bh, fmap: List[Int], pcs: List[PaintCell],
+    emit: Int, fin: Int };
+
+pub fn bhole_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> BhEng {
+    let _ = cells;
+    let cc: Int = info.cols / 2;
+    let cr: Int = info.rows / 2;
+    let st: Bh = bh_build(w_input(info, lines, rng_seed(seed)), info, cc, cr);
+    let fmap: List[Int] = cmap_d(gradient_new(list_push(list_push(list_push(
+        list_new(), 9044106), 53759), 16777215), list_push(list_new(), 9), 0),
+        info.tb, info.tt, info.tl, info.tr);
+    return BhEng { s: st, fmap: fmap, pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn bhole_eng_step(s: BhEng, info: CanvasInfo) -> BhEng {
+    let cc: Int = info.cols / 2;
+    let cr: Int = info.rows / 2;
+    let s2: Bh = bh_frame(s.s.w, s.s, info, cc, cr, s.fmap);
+    let s3: Bh = Bh { w: eng_update(s2.w), bh: s2.bh, awb: s2.awb,
+        awc: s2.awc, fd: s2.fd, ph: s2.ph };
+    let pcs: List[PaintCell] = eng_render(s3.w, info.cols, info.rows);
+    let f: Int = if list_len(s3.w.active) > 0 || s3.ph != 4 { 0 } else { 1 };
+    return BhEng { s: s3, fmap: s.fmap, pcs: pcs, emit: 1, fin: f };
+}

@@ -1,0 +1,74 @@
+// # print_eng — incremental engine facade for print
+//
+// Logline: Lazy state/step wrapper so the runtime session advances print
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses pr_make_row/pr_step plus tick/render.
+// Beats:
+//   1. print_eng_new builds the typing rows and initial PrS state.
+//   2. print_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/gradient_map.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "print/scene_print.oo";
+import "print/pr_row.oo";
+
+pub type PtEng = struct { s: PrS, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn print_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> PtEng {
+    let _ = cells;
+    let mut w: World = w_input(info, lines, rng_seed(seed));
+    w = w_add_char(w, 9608, 1, 1);
+    let head: Int = list_len(w.chars) - 1;
+    let stops: List[Int] = list_push(list_push(list_push(list_new(),
+        178365), 12710115), 65440);
+    let spec: List[Int] = gradient_new(stops, list_push(list_new(), 12), 0);
+    let cmap: List[Int] = cmap_d(spec, info.tb, info.tt, info.tl, info.tr);
+    let g0: Groups = groups_of(w, collect_ids(w, 7), 1, 0, 0, 1);
+    let mut w2: World = w;
+    let mut unt_all: List[Int] = list_new();
+    let mut bounds: List[Int] = list_new();
+    let mut keys: List[Int] = list_new();
+    let mut gi: Int = 0;
+    while gi < list_len(g0.keys) {
+        let r: PrRow = pr_make_row(w2, info, cmap, grp_win(g0, gi));
+        w2 = r.w;
+        keys = list_push(keys, gi);
+        bounds = list_push(bounds, list_len(r.unt));
+        let mut m: Int = 0;
+        while m < list_len(r.unt) {
+            unt_all = list_push(unt_all, list_get(r.unt, m));
+            m = m + 1;
+        }
+        gi = gi + 1;
+    }
+    let mut gi2: Int = 0;
+    let mut cur_unt: List[Int] = list_new();
+    if list_len(bounds) > 0 {
+        gi2 = 1;
+        cur_unt = list_slice(unt_all, 0, list_get(bounds, 0));
+    }
+    return PtEng { s: PrS { w: w2, g: Groups { keys: keys, bounds: bounds,
+        members: unt_all }, gi: gi2, cur_unt: cur_unt, cur_typed: list_new(),
+        proc_typed: list_new(), typing: 1, last_col: 0, head: head },
+        pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn print_eng_step(s: PtEng, info: CanvasInfo) -> PtEng {
+    let q: PrS = pr_step(s.s, info);
+    let w: World = eng_update(q.w);
+    let s2: PrS = PrS { w: w, g: q.g, gi: q.gi, cur_unt: q.cur_unt,
+        cur_typed: q.cur_typed, proc_typed: q.proc_typed, typing: q.typing,
+        last_col: q.last_col, head: q.head };
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if s2.typing == 1 || list_len(w.active) > 0 { 0 } else { 1 };
+    return PtEng { s: s2, pcs: pcs, emit: 1, fin: f };
+}

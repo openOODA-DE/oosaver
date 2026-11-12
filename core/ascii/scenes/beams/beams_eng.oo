@@ -1,0 +1,43 @@
+// # beams_eng — incremental engine facade for beams
+//
+// Logline: Lazy state/step wrapper so the runtime session advances beams
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses bm_build/bm_phase plus tick/render.
+// Beats:
+//   1. beams_eng_new builds the world, groups, and phase counters.
+//   2. beams_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "beams/scene_beams.oo";
+import "beams/bm_build.oo";
+
+pub type BmEng = struct { w: World, pend: BGrp, act: BGrp, fwg: Groups,
+    delay: Int, phase: Int, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn beams_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> BmEng {
+    let _ = cells;
+    let b: BmB = bm_build(w_input(info, lines, rng_seed(seed)), info);
+    let e: BGrp = BGrp { g: Groups { keys: list_new(), bounds: list_new(),
+        members: list_new() }, dir: list_new(), spd: list_new(),
+        ctr: list_new(), use_: list_new() };
+    return BmEng { w: b.w, pend: b.grp, act: e, fwg: b.fwg, delay: 0,
+        phase: 0, pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn beams_eng_step(s: BmEng, info: CanvasInfo) -> BmEng {
+    let b: BmS = bm_phase(BmS { w: s.w, pend: s.pend, act: s.act, fwg: s.fwg,
+        delay: s.delay, phase: s.phase }, info);
+    let w: World = eng_update(b.w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if b.phase != 2 || list_len(w.active) > 0 { 0 } else { 1 };
+    return BmEng { w: w, pend: b.pend, act: b.act, fwg: b.fwg, delay: b.delay,
+        phase: b.phase, pcs: pcs, emit: 1, fin: f };
+}

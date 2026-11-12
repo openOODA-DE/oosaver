@@ -1,0 +1,57 @@
+// # highlight_eng — incremental engine facade for highlight
+//
+// Logline: Lazy state/step wrapper so the runtime session advances highlight
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses hl_build/hl_gidx plus seq tracker + tick/render.
+// Beats:
+//   1. highlight_eng_new builds the world, groups, and seq tracker.
+//   2. highlight_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/easing_fns.oo";
+import "core/ascii/eng/engine/seq_easer.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "highlight/scene_highlight.oo";
+
+pub type HlEng = struct { w: World, g: Groups, gseq: List[Int], trk: Trk,
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn highlight_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                         lines: List[String], seed: Int) -> HlEng {
+    let _ = cells;
+    let w: World = hl_build(w_input(info, lines, rng_seed(seed)), info);
+    let g: Groups = groups_of(w, collect_ids(w, 1), 2, 0, 0, 0);
+    return HlEng { w: w, g: g, gseq: hl_gidx(list_len(g.keys)),
+        trk: trk_new(ez(21), 100), pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn highlight_eng_step(s: HlEng, info: CanvasInfo) -> HlEng {
+    let mut w: World = s.w;
+    let st: SeqStep = seq_step(s.gseq, s.trk);
+    let trk: Trk = st.trk;
+    let mut a: Int = 0;
+    while a < list_len(st.add) {
+        let win: List[Int] = grp_win(s.g, list_get(st.add, a));
+        let mut m: Int = 0;
+        while m < list_len(win) {
+            let id: Int = list_get(win, m);
+            w = w_aset(w, id, 0);
+            w = w_active_add(w, id);
+            m = m + 1;
+        }
+        a = a + 1;
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if list_len(w.active) > 0 || trk_complete(trk) == 0 { 0 }
+        else { 1 };
+    return HlEng { w: w, g: s.g, gseq: s.gseq, trk: trk, pcs: pcs,
+        emit: 1, fin: f };
+}

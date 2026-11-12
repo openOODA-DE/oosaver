@@ -1,0 +1,58 @@
+// # fireworks_eng — incremental engine facade for fireworks
+//
+// Logline: Lazy state/step wrapper so the runtime session advances fireworks
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses fw_waypoints/fw_scenes plus tick/render.
+// Beats:
+//   1. fireworks_eng_new builds the world and shell queue.
+//   2. fireworks_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engine/float_conv.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "core/ascii/eng/engine/rng_helpers.oo";
+import "fireworks/scene_fireworks.oo";
+import "fireworks/fw_geom.oo";
+
+pub type FwEng = struct { w: World, shells: List[FwSh], delay: Int,
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn fireworks_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                         lines: List[String], seed: Int) -> FwEng {
+    let _ = cells;
+    let b: FwB = fw_waypoints(w_input(info, lines, rng_seed(seed)), info);
+    return FwEng { w: fw_scenes(b.w, info, b.shells), shells: b.shells,
+        delay: 0, pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn fireworks_eng_step(s: FwEng, info: CanvasInfo) -> FwEng {
+    let mut w: World = s.w;
+    let mut shells: List[FwSh] = s.shells;
+    let mut delay: Int = s.delay;
+    if list_len(shells) > 0 && delay <= 0 {
+        let shell: FwSh = list_get(shells, list_len(shells) - 1);
+        shells = list_slice(shells, 0, list_len(shells) - 1);
+        let mut m: Int = 0;
+        while m < list_len(shell.chars) {
+            let id: Int = list_get(shell.chars, m);
+            w = w_set_vis(w, id, 1);
+            w = w_active_add(w, id);
+            m = m + 1;
+        }
+        let du: DRF = rng_unif(w.rng, 0.5, 1.5);
+        w = w_rng(w, du.r);
+        delay = trunc_i(15.0 * du.v);
+    }
+    delay = delay - 1;
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if list_len(shells) > 0 || list_len(w.active) > 0 { 0 } else { 1 };
+    return FwEng { w: w, shells: shells, delay: delay, pcs: pcs, emit: 1, fin: f };
+}

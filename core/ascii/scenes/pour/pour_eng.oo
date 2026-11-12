@@ -1,0 +1,52 @@
+// # pour_eng — incremental engine facade for pour
+//
+// Logline: Lazy state/step wrapper so the runtime session advances pour
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses pr_build/pr_release/pr_rev plus tick/render.
+// Beats:
+//   1. pour_eng_new builds the world and group order.
+//   2. pour_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engapi/char_ops.oo";
+import "core/ascii/eng/engapi/char_groups.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "pour/scene_pour.oo";
+
+pub type PqEng = struct { w: World, g: Groups, gi: Int, cur: List[Int],
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn pour_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                    lines: List[String], seed: Int) -> PqEng {
+    let _ = cells;
+    let w0: World = w_input(info, lines, rng_seed(seed));
+    let g: Groups = groups_of(w0, collect_ids(w0, 1), 1, 0, 0, 0);
+    return PqEng { w: pr_build(w0, info, g), g: g, gi: 1, cur: grp_win(g, 0),
+        pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn pour_eng_step(s: PqEng, info: CanvasInfo) -> PqEng {
+    let mut w: World = s.w;
+    let mut gi: Int = s.gi;
+    let mut cur: List[Int] = s.cur;
+    if list_len(cur) == 0 && gi < list_len(s.g.keys) {
+        cur = grp_win(s.g, gi);
+        if gi % 2 == 1 { cur = pr_rev(cur); }
+        gi = gi + 1;
+    }
+    if list_len(cur) > 0 {
+        let q: PrQ = pr_release(w, cur);
+        w = q.w;
+        cur = q.cur;
+    }
+    w = eng_update(w);
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if gi < list_len(s.g.keys) || list_len(cur) > 0 ||
+        list_len(w.active) > 0 { 0 } else { 1 };
+    return PqEng { w: w, g: s.g, gi: gi, cur: cur, pcs: pcs, emit: 1, fin: f };
+}

@@ -1,0 +1,74 @@
+// # TUI Mini Preview - Live Scene Session Spec and Step
+//
+// Logline: Computes the MiniPreview scene, columns, and wordmark key, then steps one persistent PortSession per TUI frame.
+// Setup: Pure spec over TuiModel plus PortSession threading. The key rebuilds the session only when scene, size, or banner changes.
+// Beats:
+//   1. Resolve the preview scene index, column width, and wordmark from the model (wide terminals only).
+//   2. Key the session by name:cols:wm so a spec change rebuilds the tape exactly once.
+//   3. Advance the live session one frame per redraw and compose its grid — O(1) steady state.
+
+import "core/cell.oo";
+import "core/grid.oo";
+import "core/ascii/effects.oo";
+import "core/ascii/engine.oo";
+import "core/ascii/port_session.oo";
+import "core/ascii/layout/wordmark.oo";
+import "model.oo";
+
+pub type MiniSpec = struct {
+    key: String,
+    name: String,
+    cols: Int,
+    wm: String,
+    seed: Int
+};
+
+pub type MiniStep = struct {
+    ps: PortSession,
+    key: String,
+    grid: CellGrid
+};
+
+pub fn tui_mini_spec(m: TuiModel, tick: Int) -> MiniSpec {
+    if m.cols < 105 {
+        return MiniSpec { key: "", name: "", cols: 28, wm: "", seed: 0 };
+    }
+    let mut pv_cols: Int = m.cols - 77;
+    if pv_cols < 28 { pv_cols = 28; }
+    if pv_cols > 48 { pv_cols = 48; }
+    let mut sc_idx: Int = 0;
+    if m.selected_saver >= 3 { sc_idx = m.selected_saver - 3; }
+    else { sc_idx = (tick / 60) % 51; }
+    let wm: String = if m.selected_saver == 2 {
+        "SUPERFEDORA"
+    } else if !m.use_os_brand && str_trim(m.custom_text) != "" {
+        to_uppercase(str_trim(m.custom_text))
+    } else {
+        wm_clean_os(m.detected_os)
+    };
+    let name: String = effects_name(sc_idx);
+    return MiniSpec {
+        key: name + ":" + pv_cols.to_string() + ":" + wm,
+        name: name,
+        cols: pv_cols,
+        wm: wm,
+        seed: tick
+    };
+}
+
+pub fn tui_mini_step(ps: PortSession, prev: String, spec: MiniSpec) -> MiniStep {
+    let mut s: PortSession = ps;
+    let mut g: CellGrid = grid_new(1, 1, rgb(4, 6, 12));
+    let k: String = spec.key;
+    if k == "" {
+        return MiniStep { ps: s, key: k, grid: g };
+    }
+    let mut nk: String = prev;
+    if k != nk {
+        s = port_session_new(spec.name, spec.cols, 16, spec.wm, spec.seed);
+        nk = k;
+    }
+    s = port_session_next(s);
+    g = engine_session_grid(s);
+    return MiniStep { ps: s, key: nk, grid: g };
+}

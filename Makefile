@@ -5,7 +5,11 @@
 # this project — see the std-check target below.
 OODA_HOME ?= $(shell if [ -d /Projects/openOODA-core/oodac ]; then echo /Projects/openOODA-core; elif [ -d "$$HOME/Projects/openOODA-core/oodac" ]; then echo "$$HOME/Projects/openOODA-core"; elif [ -x "$$HOME/.openooda/bin/oodac" ]; then echo "$$HOME/.openooda"; else echo "$(abspath $(CURDIR)/../../openOODA-core)"; fi)
 OODA_COMPILER ?= /Projects/openOODA-core/oodac/bin/oodac
-OODA_OODAR_ROOT ?= /Projects/openOODA-core/oodar/core
+# oodac resolves the runtime archive itself under OODA_OODAR_ROOT — a
+# directory holding core/lib/liboodar-core.a (checkout layout) or liboodar.a
+# (install layout). The in-repo oodar checkout is preferred; the machine-local
+# archive (~/.openooda/bin) is an explicit opt-in via OODA_OODAR_ROOT=...
+OODA_OODAR_ROOT ?= $(OODA_HOME)/oodar
 export OODA_OODAR_ROOT
 # The compiler resolves oostd/... imports by walking up from the source tree
 # (ast/load_import_parse.oo: probe_parent_walk). The std repo must therefore
@@ -18,19 +22,9 @@ OODA_STD_DIR ?= $(shell d=$(CURDIR); while [ "$$d" != "/" ]; do if [ -d "$$d/oos
 # The std tree is read during the build, so it must be inside the compiler's
 # FS read scope — otherwise every `oostd/...` import fails to resolve with
 # "ERR import not found".
-OODA_READDIR ?= $(CURDIR):$(OODA_HOME)$(if $(OODA_STD_DIR),:$(OODA_STD_DIR))
+OODA_READDIR ?= $(CURDIR):$(OODA_HOME)$(if $(OODA_STD_DIR),:$(OODA_STD_DIR)):$(OODA_OODAR_ROOT)
 OODA_WRITEDIR ?= $(CURDIR):/tmp
 OO_LIST_AMBIENT_QUOTA ?= 8589934592
-# oodar static libs: checkout layout builds core+net; an openOODA install
-# ships one umbrella archive.
-ifneq ($(wildcard $(OODA_HOME)/oodar/scripts/Makefile),)
-OODAR_LIBS := $(OODA_HOME)/oodar/scripts/lib/liboodar-core.a $(OODA_HOME)/oodar/scripts/lib/liboodar-net.a
-else ifneq ($(wildcard $(OODA_HOME)/oodar/core/lib/liboodar-core.a),)
-OODAR_LIBS := $(OODA_HOME)/oodar/core/lib/liboodar-core.a $(OODA_HOME)/oodar/core/lib/liboodar-net.a
-else
-OODAR_LIBS := $(OODA_HOME)/bin/liboodar.a
-endif
-OODAR_INCDIR := $(if $(wildcard $(OODA_HOME)/oodar/oodar.h),$(OODA_HOME)/oodar,$(if $(wildcard $(OODA_HOME)/oodar/core/oodar.h),$(OODA_HOME)/oodar/core,$(OODA_HOME)))
 BIN := bin/oosaver
 TESTBIN := bin/test_oosaver
 REPO_NAME := oosaver
@@ -42,12 +36,12 @@ ENV := OO_LIST_AMBIENT_QUOTA=$(OO_LIST_AMBIENT_QUOTA) OODA_BUILD_MULTI=1 OODA_FS
 
 all: build verify test det parity
 
-PARITY_SCENES := aurora beams binarypath blackhole bouncyballs breakout bubbles burn chaos colorshift cosmos crumble decrypt errorcorrect expand fireworks highlight life metaballs middleout moire mystify orbittingvolley overflow pipes plasma pour radar rain randomsequence rings ripple scattered slice slide smoke spotlights spray swarm sweep synthgrid tetris tunnel unstable waves wipe
+PARITY_SCENES := plasma ripple aurora chaos metaballs moire cosmos radar tunnel mystify expand wipe sweep slide middleout binarypath burn blackhole rain scattered pour slice colorshift highlight spray overflow bouncyballs decrypt fireworks spotlights errorcorrect crumble smoke breakout life pipes tetris waves swarm unstable thunderstorm randomsequence orbittingvolley bubbles beams laseretch print rings synthgrid matrix vhstape
 
 parity:
 	@mkdir -p .ooda-cache bin
 	@$(MAKE) --no-print-directory std-check
-	$(ENV) $(OODA_COMPILER) build tests/oo/scene_emit.oo -o bin/scene_emit > /dev/null
+	$(ENV) $(OODA_COMPILER) build tests/scene_emit.oo -o bin/scene_emit > /dev/null
 	@fail=0; \
 	for s in $(PARITY_SCENES); do \
 		$(ENV) ./bin/scene_emit $$s > .ooda-cache/parity_$$s.txt; \
@@ -65,11 +59,23 @@ std-check:
 		echo "      clone openOODA-core/std as \`oostd\` beside this project (e.g. $(dir $(CURDIR))oostd)"; exit 1; }
 	@echo "PASS: std repo at $(OODA_STD_DIR)"
 
-# In a checkout layout, build the oodar archives first; an installed
-# toolchain already ships them.
+# The compiler links the archive it finds under OODA_OODAR_ROOT — make the
+# dependency loud: if no archive exists anywhere the toolchain knows, fail
+# here rather than at the end of a long compile.
 oodar-libs:
-	@if [ -f $(OODA_HOME)/oodar/scripts/Makefile ]; then $(MAKE) -C $(OODA_HOME)/oodar/scripts core net; \
-	elif [ -f $(OODA_HOME)/oodar/Makefile ]; then $(MAKE) -C $(OODA_HOME)/oodar core net; fi
+	@if [ -f "$(OODA_OODAR_ROOT)/core/lib/liboodar-core.a" ] || \
+	    [ -f "$(OODA_OODAR_ROOT)/scripts/lib/liboodar-core.a" ] || \
+	    [ -f "$(OODA_OODAR_ROOT)/lib/liboodar-core.a" ] || \
+	    [ -f "$(OODA_OODAR_ROOT)/liboodar-core.a" ] || \
+	    [ -f "$(OODA_OODAR_ROOT)/liboodar.a" ]; then \
+		echo "PASS: oodar runtime archive under $(OODA_OODAR_ROOT)"; \
+	elif [ -f "$(OODA_HOME)/oodar/Makefile" ]; then \
+		echo "oodar archive missing under $(OODA_OODAR_ROOT) — building via oodar Makefile"; \
+		$(MAKE) -C $(OODA_HOME)/oodar archives || { echo "FAIL: oodar archive build failed"; exit 1; }; \
+	else \
+		echo "FAIL: no oodar runtime archive under OODA_OODAR_ROOT=$(OODA_OODAR_ROOT)"; \
+		exit 1; \
+	fi
 
 build: $(BIN)
 
@@ -95,15 +101,19 @@ $(BIN): $(SRC)
 # ("use of undefined value '@oo_unix_accept'") at the end of a long build.
 ll-declares:
 	@mkdir -p .ooda-cache
-	@ll=$$(ls -t .ooda-cache/ooda-tmp/all_*.ll 2>/dev/null | head -n 1); \
-	if [ -z "$$ll" ]; then ll=$$(ls -t .ooda-cache/oodac_emit/*.ll 2>/dev/null | tr '\n' ' '); fi; \
-	test -n "$$ll" || { echo "FAIL: no emitted .ll under .ooda-cache"; exit 1; }; \
-	grep -oE 'call [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*' | grep -v '^@llvm\.' | sort -u > .ooda-cache/ll_called.txt; \
-	{ grep -oE '^declare [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; \
-	  grep -oE '^define [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; } | sort -u > .ooda-cache/ll_declared.txt; \
-	comm -23 .ooda-cache/ll_called.txt .ooda-cache/ll_declared.txt > .ooda-cache/ll_undeclared.txt; \
-	if [ -s .ooda-cache/ll_undeclared.txt ]; then \
-		echo "FAIL: emitted LLVM calls symbols it never declares:"; sed 's/^/  /' .ooda-cache/ll_undeclared.txt; \
+	@lls=$$(ls .ooda-cache/ooda-tmp/*.ll 2>/dev/null); \
+	test -n "$$lls" || { echo "FAIL: no emitted .ll under .ooda-cache/ooda-tmp"; exit 1; }; \
+	fail=0; \
+	for ll in $$lls; do \
+		grep -oE 'call [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*' | grep -v '^@llvm\.' | sort -u > .ooda-cache/ll_called.txt; \
+		{ grep -oE '^declare [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; \
+		  grep -oE '^define [^@]*@[A-Za-z_][A-Za-z0-9_]*' "$$ll" | grep -oE '@[A-Za-z_][A-Za-z0-9_]*'; } | sort -u > .ooda-cache/ll_declared.txt; \
+		comm -23 .ooda-cache/ll_called.txt .ooda-cache/ll_declared.txt > .ooda-cache/ll_undeclared.txt; \
+		if [ -s .ooda-cache/ll_undeclared.txt ]; then \
+			echo "FAIL: $$ll calls symbols it never declares:"; sed 's/^/  /' .ooda-cache/ll_undeclared.txt; fail=1; \
+		fi; \
+	done; \
+	if [ $$fail -ne 0 ]; then \
 		echo "      the toolchain compiler is stale — rebuild openOODA-core/oodac bin/oodac from master source"; \
 		exit 1; \
 	fi; \
@@ -119,7 +129,7 @@ portable:
 
 line-cap:
 	@violations=0; \
-	for f in $$(find . -name "*.oo" -o -name "*.oot" | grep -v "/.git/" | grep -v "/bin/" | grep -v "/dist/" | grep -v "/.ooda-cache/" | grep -v "/target/"); do \
+	for f in $$(find . -name "*.oo" -o -name "*.oot" | grep -v "/.git/" | grep -v "/bin/" | grep -v "/dist/" | grep -v "/.ooda-cache/" | grep -v "/target/" | grep -v "/.blackbox/"); do \
 		n=$$(wc -l < "$$f"); \
 		if [ $$n -gt 256 ]; then \
 			echo "VIOLATION: $$f = $$n lines (exceeds 256)"; violations=$$((violations+1)); \
@@ -137,23 +147,23 @@ file-law:
 	@forbidden="py rs js ts rb pl json yaml toml"; \
 	violations=0; \
 	for ext in $$forbidden; do \
-		found=$$(find . -name "*.$$ext" -not -path "./.git/*" -not -path "./.github/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./target/*" 2>/dev/null | head -3); \
+		found=$$(find . -name "*.$$ext" -not -path "./.git/*" -not -path "./.github/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./.blackbox/*" -not -path "./target/*" 2>/dev/null | head -3); \
 		if [ -n "$$found" ]; then \
 			echo "VIOLATION: .$$ext forbidden:"; echo "$$found"; violations=$$((violations+1)); \
 		fi; \
 	done; \
-	yaml=$$(find . \( -name "*.yml" -o -name "*.yaml" \) -not -path "./.git/*" -not -path "./.github/workflows/*" 2>/dev/null | head -3); \
+	yaml=$$(find . \( -name "*.yml" -o -name "*.yaml" \) -not -path "./.git/*" -not -path "./.github/workflows/*" -not -path "./.blackbox/*" 2>/dev/null | head -3); \
 	if [ -n "$$yaml" ]; then echo "VIOLATION: yaml outside .github/workflows"; echo "$$yaml"; violations=$$((violations+1)); fi; \
-	for f in $$(find . -name "*.sh" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" 2>/dev/null); do \
+	for f in $$(find . -name "*.sh" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./.blackbox/*" 2>/dev/null); do \
 		b=$$(basename "$$f"); \
 		if [ "$$b" != "install.sh" ] && [ "$$b" != "uninstall.sh" ]; then echo "VIOLATION: .sh forbidden outside install.sh and uninstall.sh: $$f"; violations=$$((violations+1)); fi; \
 	done; \
-	for f in $$(find . -name "*.md" -not -path "./.git/*" -not -path "./.github/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" 2>/dev/null); do \
+	for f in $$(find . -name "*.md" -not -path "./.git/*" -not -path "./.github/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./.blackbox/*" 2>/dev/null); do \
 		b=$$(basename "$$f"); \
 		if [ "$$b" != "README.md" ] && [ "$$b" != "AGENTS.md" ]; then echo "VIOLATION: .md forbidden outside README.md and AGENTS.md: $$f"; violations=$$((violations+1)); fi; \
 	done; \
 	for nm in util utils helper helpers common misc shared base; do \
-		found=$$(find . -name "$$nm.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" 2>/dev/null | head -3); \
+		found=$$(find . -name "$$nm.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.blackbox/*" 2>/dev/null | head -3); \
 		if [ -n "$$found" ]; then echo "VIOLATION: banned page name $$nm.oo:"; echo "$$found"; violations=$$((violations+1)); fi; \
 	done; \
 	if [ $$violations -gt 0 ]; then echo "FAIL: file-law violations"; exit 1; fi; \
@@ -161,7 +171,7 @@ file-law:
 
 academy:
 	@failures=0; \
-	for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*"); do \
+	for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./.blackbox/*"); do \
 		header=$$(head -16 "$$f"); \
 		missing=""; \
 		echo "$$header" | grep -q "^// # "        || missing="$$missing title"; \
@@ -177,7 +187,7 @@ academy:
 
 density:
 	@violations=0; \
-	for d in $$(find . -type d -not -path "./.git*" -not -path "./bin*" -not -path "./dist*" -not -path "./.ooda-cache*" -not -path "./.github*" -not -path "./target*"); do \
+	for d in $$(find . -type d -not -path "./.git*" -not -path "./bin*" -not -path "./dist*" -not -path "./.ooda-cache*" -not -path "./.github*" -not -path "./target*" -not -path "./.blackbox*"); do \
 		n=$$(ls "$$d"/*.oo "$$d"/*.oot 2>/dev/null | grep -v '\*' | wc -l); \
 		if [ $$n -gt 8 ]; then \
 			echo "VIOLATION: $$d holds $$n pages (exceeds 8)"; violations=$$((violations+1)); \
@@ -194,7 +204,7 @@ vocab:
 
 shape:
 	@violations=0; \
-	for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*"); do \
+	for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./.blackbox/*"); do \
 		fns=$$(grep -cE '^[[:space:]]*(pub[[:space:]]+)?fn ' "$$f" || true); \
 		if [ "$$fns" -gt 8 ]; then \
 			echo "VIOLATION: $$f has $$fns functions (exceeds 8)"; violations=$$((violations+1)); \
@@ -210,7 +220,7 @@ shape:
 check:
 	@$(MAKE) --no-print-directory std-check
 	@mkdir -p .ooda-cache
-	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./tests/oo/*" -not -path "./tests/scene_dispatch.oo" -not -path "./oostd/*"); do \
+	@for f in $$(find . -name "*.oo" -not -path "./.git/*" -not -path "./bin/*" -not -path "./dist/*" -not -path "./.ooda-cache/*" -not -path "./.blackbox/*" -not -path "./oostd/*"); do \
 		$(ENV) $(OODA_COMPILER) check "$$f" > .ooda-cache/check_out.txt 2>&1 || { echo "VIOLATION: oodac check fails on $$f"; echo "--- compiler output ---"; cat .ooda-cache/check_out.txt; exit 1; } \
 	done; \
 	echo "PASS: oodac check holds on all .oo files"
@@ -271,4 +281,4 @@ det: $(BIN)
 	@cmp -s .ooda-cache/det_a .ooda-cache/det_b && sha256sum .ooda-cache/det_a && echo "PASS: deterministic build (byte-identical)" || (echo "FAIL: nondeterministic build"; exit 1)
 
 clean:
-	@rm -rf bin dist .ooda-cache
+	@rm -rf bin dist .ooda-cache .blackbox

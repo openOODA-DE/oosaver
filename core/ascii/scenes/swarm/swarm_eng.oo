@@ -1,0 +1,35 @@
+// # swarm_eng — incremental engine facade for swarm
+//
+// Logline: Lazy state/step wrapper so the runtime session advances swarm
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses sw_build/sw_step; sw_step already runs the
+// engine tick inside, matching the parity driver.
+// Beats:
+//   1. swarm_eng_new builds the swarm state.
+//   2. swarm_eng_step mirrors one run-loop iteration.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "swarm/scene_swarm.oo";
+import "swarm/sw_build.oo";
+
+pub type SwEng = struct { s: SwS, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn swarm_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                     lines: List[String], seed: Int) -> SwEng {
+    let _ = cells;
+    return SwEng { s: sw_build(w_input(info, lines, rng_seed(seed)), info),
+        pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn swarm_eng_step(s: SwEng, info: CanvasInfo) -> SwEng {
+    let s2: SwS = sw_step(s.s, info);
+    let pcs: List[PaintCell] = eng_render(s2.w, info.cols, info.rows);
+    let f: Int = if list_len(s2.swarms.bounds) > 0 ||
+        list_len(s2.w.active) > 0 { 0 } else { 1 };
+    return SwEng { s: s2, pcs: pcs, emit: 1, fin: f };
+}

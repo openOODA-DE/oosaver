@@ -7,13 +7,10 @@
 //   2. Format slider displays for timeout, dwell, fps, and DPMS.
 //   3. Render animated side-by-side MiniPreview on wide terminals.
 
-import "core/cell.oo";
 import "core/grid.oo";
-import "core/ascii/effects.oo";
-import "core/ascii/engine.oo";
-import "core/ascii/layout/wordmark.oo";
 import "core/ascii/draw/ansi.oo";
 import "model.oo";
+import "mini.oo";
 
 pub fn tui_fit_str(s: String, width: Int) -> String {
     let len: Int = chars_len(s);
@@ -60,24 +57,11 @@ fn tui_button_bar(focused: Int) -> String {
     return "  " + b_s + "  " + b_p + "  " + b_f + "  " + b_q + tui_csi("K\r\n") + tui_csi("K\r\n");
 }
 
-pub fn tui_render_mini_preview(m: TuiModel, tick: Int) -> String {
-    if m.cols < 105 { return ""; }
-    let mut pv_cols: Int = m.cols - 77;
-    if pv_cols < 28 { pv_cols = 28; }
-    if pv_cols > 48 { pv_cols = 48; }
+pub fn tui_render_mini_preview(m: TuiModel, tick: Int, pg: CellGrid) -> String {
+    let spec: MiniSpec = tui_mini_spec(m, tick);
+    if spec.key == "" { return ""; }
+    let pv_cols: Int = spec.cols;
     let mut out: String = "";
-    let mut sc_idx: Int = 0;
-    if m.selected_saver >= 3 { sc_idx = m.selected_saver - 3; }
-    else { sc_idx = (tick / 60) % 51; }
-    let wm: String = if m.selected_saver == 2 {
-        "SUPERFEDORA"
-    } else if !m.use_os_brand && str_trim(m.custom_text) != "" {
-        to_uppercase(str_trim(m.custom_text))
-    } else {
-        wm_clean_os(m.detected_os)
-    };
-    let mut pg: CellGrid = grid_new(pv_cols, 16, rgb(4, 6, 12));
-    pg = engine_frame(pg, sc_idx, tick, wm);
     let r0: String = tui_csi("0m");
     let c6: String = tui_csi("1;36m");
     let mut top_bar: String = "┌─ Live Preview ";
@@ -89,7 +73,7 @@ pub fn tui_render_mini_preview(m: TuiModel, tick: Int) -> String {
     top_bar = top_bar + "┐" + r0;
     out = out + tui_csi("1;75H") + c6 + top_bar;
     out = out + tui_csi("2;75H") + c6 + "│" + r0 + tui_csi("1;33m ") +
-        tui_fit_str("Scene: " + effects_name(sc_idx) + " │ " + wm, pv_cols - 1) +
+        tui_fit_str("Scene: " + spec.name + " │ " + spec.wm, pv_cols - 1) +
         r0 + c6 + "│" + r0;
     let mut y: Int = 0;
     while y < 16 {
@@ -123,7 +107,7 @@ fn tui_banner_input_box(m: TuiModel) -> String {
     return b;
 }
 
-pub fn tui_frame(m: TuiModel, tick: Int) -> String {
+pub fn tui_frame(m: TuiModel, tick: Int, pg: CellGrid) -> String {
     let r0: String = tui_csi("0m");
     let c6: String = tui_csi("1;36m");
     let c2: String = tui_csi("2m");
@@ -162,7 +146,7 @@ pub fn tui_frame(m: TuiModel, tick: Int) -> String {
     let dirty_tag: String = if m.dirty { tui_csi("1;33m") + "[Modified]" + r0 + " " } else { "" };
     b = b + "  Status: " + dirty_tag + m.status_msg + " | " + tui_summary(m) + eol;
     b = b + "  " + c2 + "Keys: [↑↓/jk] Nav  [←→/hl] Adjust  [S] Save  [P] Term  [F] Fullscreen  [T] Standby  [Q] Quit" + r0 + eol;
-    b = b + tui_render_mini_preview(m, tick);
+    b = b + tui_render_mini_preview(m, tick, pg);
     b = b + tui_csi("?2026l");
     return b;
 }

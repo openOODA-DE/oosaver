@@ -1,0 +1,65 @@
+// # matrix_eng — incremental engine facade for matrix
+//
+// Logline: Lazy state/step wrapper so the runtime session advances matrix
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses the mx_* builders plus tick/render.
+// Beats:
+//   1. matrix_eng_new builds the world, column plan, and phase state.
+//   2. matrix_eng_step mirrors one run-loop iteration, including the
+//      two-step "shown" hold before termination.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "core/ascii/eng/engine/rng_helpers.oo";
+import "matrix/scene_matrix.oo";
+import "matrix/mx_step.oo";
+import "matrix/mx_setup.oo";
+
+pub type MxEng = struct { s: MxS, syms: List[Int], rc: List[Int],
+    pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn matrix_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                      lines: List[String], seed: Int) -> MxEng {
+    let _ = cells;
+    let mut w: World = w_input(info, lines, rng_seed(seed));
+    let cmap: List[Int] = mx_fmap(mx_fspec(), info);
+    w = mx_scenes(w, cmap, info);
+    let l: MxL = mx_cols(w, info);
+    w = l.w;
+    let mut pend: List[Int] = list_new();
+    let mut ci: Int = 0;
+    while ci < list_len(l.ls) { pend = list_push(pend, ci); ci = ci + 1; }
+    let sh: DRL = rng_shuf(w.rng, pend);
+    w = w_rng(w, sh.r);
+    let s: MxS = MxS { w: w, cols: l.ls, pend: sh.v, act: list_new(),
+        full: list_new(), phase: 0, cd: 0, rd: 1, done: 0, shown: 0,
+        emitted: 0 };
+    return MxEng { s: s, syms: mx_rsyms(), rc: mx_rcol(), pcs: list_new(),
+        emit: 0, fin: 0 };
+}
+
+pub fn matrix_eng_step(s: MxEng, info: CanvasInfo) -> MxEng {
+    let mut st: MxS = mx_phase_step(s.s, s.syms, s.rc);
+    let mut more: Int = 0;
+    if list_len(st.full) > 0 || list_len(st.act) > 0 ||
+        list_len(st.w.active) > 0 || list_len(st.pend) > 0 ||
+        st.done == 0 { more = 1; }
+    let mut shown: Int = st.shown;
+    if more == 0 {
+        if shown == 1 {
+            return MxEng { s: st, syms: s.syms, rc: s.rc, pcs: list_new(),
+                emit: 0, fin: 1 };
+        }
+        shown = 1;
+    }
+    let w3: World = eng_update(st.w);
+    st = MxS { w: w3, cols: st.cols, pend: st.pend, act: st.act,
+        full: st.full, phase: st.phase, cd: st.cd, rd: st.rd, done: st.done,
+        shown: shown, emitted: st.emitted + 1 };
+    let pcs: List[PaintCell] = eng_render(st.w, info.cols, info.rows);
+    return MxEng { s: st, syms: s.syms, rc: s.rc, pcs: pcs, emit: 1, fin: 0 };
+}

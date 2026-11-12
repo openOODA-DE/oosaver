@@ -1,0 +1,58 @@
+// # synthgrid_eng — incremental engine facade for synthgrid
+//
+// Logline: Lazy state/step wrapper so the runtime session advances synthgrid
+// without a pre-rendered tape.
+// Setup: Pure compute. Reuses sg_setup/sg_step plus tick/render.
+// Beats:
+//   1. synthgrid_eng_new builds the grid state once.
+//   2. synthgrid_eng_step mirrors one run-loop iteration including the
+//      pend/tr bookkeeping.
+
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/grid_cells.oo";
+import "core/ascii/eng/kernel/world_ops.oo";
+import "core/ascii/eng/kernel/engine_tick.oo";
+import "core/ascii/eng/kernel/engine_render.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "synthgrid/scene_synthgrid.oo";
+import "synthgrid/sg_build.oo";
+import "synthgrid/sg_setup.oo";
+
+pub type SgEng = struct { s: SgS, pcs: List[PaintCell], emit: Int, fin: Int };
+
+pub fn synthgrid_eng_new(cells: List[CellGeom], info: CanvasInfo,
+                         lines: List[String], seed: Int) -> SgEng {
+    let _ = cells;
+    return SgEng { s: sg_setup(w_input(info, lines, rng_seed(seed)), info),
+        pcs: list_new(), emit: 0, fin: 0 };
+}
+
+pub fn synthgrid_eng_step(s: SgEng, info: CanvasInfo) -> SgEng {
+    let q: SgS = sg_step(s.s);
+    let mut w: World = eng_update(q.w);
+    let mut tr: List[Int] = q.tr;
+    let mut p: Int = 0;
+    while p < list_len(w.pend) {
+        let cid: Int = list_get(w.pend, p);
+        let cb: Int = list_get(w.pend, p + 1);
+        let cg: Int = list_get(w.pend, p + 2);
+        if cb == 0 { tr = list_set(tr, cg, list_get(tr, cg) - 1); }
+        p = p + 3;
+    }
+    w = World { chars: w.chars, active: w.active, rng: w.rng,
+        next_id: w.next_id, pend: list_new() };
+    let mut act: Int = 0;
+    let mut t: Int = 0;
+    while t < list_len(tr) {
+        if list_get(tr, t) != 0 { act = act + 1; }
+        t = t + 1;
+    }
+    let s2: SgS = SgS { w: w, phase: q.phase, tot: q.tot, act: act,
+        lc: q.lc, lb: q.lb, le: q.le, leb: q.leb, ld: q.ld, pn: q.pn,
+        pm: q.pm, pb: q.pb, tr: tr, ids: q.ids };
+    let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
+    let f: Int = if list_len(s2.pn) > 0 || list_len(w.active) > 0 ||
+        s2.phase != 3 { 0 } else { 1 };
+    return SgEng { s: s2, pcs: pcs, emit: 1, fin: f };
+}
