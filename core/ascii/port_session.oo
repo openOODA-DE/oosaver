@@ -1,6 +1,7 @@
 // # Port Session - Stateful Rust-Parity Scene Driver
 //
-// Logline: Holds one ported scene's live engine state across preview frames so intro animation and settle match the Rust lifecycle.
+// Logline: Holds one ported scene's live engine state across preview frames so
+//   intro animation and settle match the Rust lifecycle.
 // Setup: Pure state threading over the core/ascii bit-exact scene ports. Operates with zero ambient authority.
 // Beats:
 //   1. Build canvas geometry for the terminal size and lazily construct the scene engine state.

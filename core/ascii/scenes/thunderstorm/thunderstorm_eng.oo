@@ -9,12 +9,12 @@
 
 import "core/ascii/eng/canvas_cells.oo";
 import "core/ascii/eng/grid_cells.oo";
-import "core/ascii/eng/kernel/world_ops.oo";
+
 import "core/ascii/eng/kernel/engine_render.oo";
-import "core/ascii/eng/engapi/input_arena.oo";
+
 import "thunderstorm/scene_thunderstorm.oo";
 import "thunderstorm/th_build.oo";
-import "thunderstorm/th_step.oo";
+
 import "thunderstorm/th_state.oo";
 
 pub type ThEng = struct { s: ThS, ids: List[Int], pcs: List[PaintCell],

@@ -23,7 +23,7 @@ pub type OfEng = struct { w: World, pend: List[OvRow], act: List[OvRow],
 pub fn overflow_eng_new(cells: List[CellGeom], info: CanvasInfo,
                         lines: List[String], seed: Int) -> OfEng {
     let _ = cells;
-    let b: OvB = ov_build(w_input(info, lines, rng_seed(seed)), info);
+    let b: OvB = of_build(w_input(info, lines, rng_seed(seed)), info);
     let ostops: List[Int] = list_push(list_push(list_push(list_new(),
         15920064), 9289651), 15920064);
     return OfEng { w: b.w, pend: b.rows, act: list_new(),

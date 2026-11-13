@@ -18,7 +18,7 @@ import "core/ascii/eng/engine/rng_xoshiro.oo";
 import "rings/scene_rings.oo";
 import "rings/rg_state.oo";
 import "rings/rg_step.oo";
-import "rings/rg_geom.oo";
+
 
 pub type RgEng = struct { s: RgS, pcs: List[PaintCell], emit: Int, fin: Int };
 

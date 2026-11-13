@@ -32,7 +32,10 @@ pub fn matrix_eng_new(cells: List[CellGeom], info: CanvasInfo,
     w = l.w;
     let mut pend: List[Int] = list_new();
     let mut ci: Int = 0;
-    while ci < list_len(l.ls) { pend = list_push(pend, ci); ci = ci + 1; }
+    while ci < list_len(l.ls) {
+        pend = list_push(pend, ci);
+        ci = ci + 1;
+    }
     let sh: DRL = rng_shuf(w.rng, pend);
     w = w_rng(w, sh.r);
     let s: MxS = MxS { w: w, cols: l.ls, pend: sh.v, act: list_new(),

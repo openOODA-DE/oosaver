@@ -81,7 +81,8 @@ pub fn tui_render_mini_preview(m: TuiModel, tick: Int, pg: CellGrid) -> String {
         out = out + tui_csi(r_row.to_string() + ";75H") + c6 + "│" + r0 + ansi_render_row(pg, y) + c6 + "│" + r0;
         y = y + 1;
     }
-    out = out + tui_csi("19;75H") + c6 + "│" + r0 + tui_csi("2m ") + tui_fit_str("[←/→] Scene  [P] Term  [F] Full", pv_cols - 1) + r0 + c6 + "│" + r0;
+    out = out + tui_csi("19;75H") + c6 + "│" + r0 + tui_csi("2m ") +
+        tui_fit_str("[←/→] Scene  [P] Term  [F] Full", pv_cols - 1) + r0 + c6 + "│" + r0;
     let mut bot_bar: String = "└";
     let mut bi: Int = 0;
     while bi < pv_cols {
@@ -99,9 +100,11 @@ fn tui_banner_input_box(m: TuiModel) -> String {
     let eol: String = tui_csi("K\r\n");
     let tf_hdr: String = if is_tf { tui_csi("1;33m") } else { tui_csi("1m") };
     let bdr: String = if is_tf { tui_csi("1;33m") } else { tui_csi("2m") };
-    let mut b: String = tf_hdr + "[3] Custom Banner Text:" + r0 + " " + tui_csi("2m") + "(Enter to edit, Esc/Enter to finish)" + r0 + eol;
+    let mut b: String = tf_hdr + "[3] Custom Banner Text:" + r0 + " " + tui_csi("2m") +
+        "(Enter to edit, Esc/Enter to finish)" + r0 + eol;
     b = b + "  " + bdr + "┌──────────────────────────────────────────────────────────────┐" + r0 + eol;
-    let cur_str: String = if m.editing_text { m.custom_text + "│" } else if m.custom_text == "" { "(Press Enter to type custom banner)" } else { m.custom_text };
+    let cur_str: String = if m.editing_text { m.custom_text + "│" }
+        else if m.custom_text == "" { "(Press Enter to type custom banner)" } else { m.custom_text };
     b = b + "  " + bdr + "│" + r0 + " " + tui_fit_str(cur_str, 60) + " " + bdr + "│" + r0 + eol;
     b = b + "  " + bdr + "└──────────────────────────────────────────────────────────────┘" + r0 + eol + eol;
     return b;
@@ -116,12 +119,17 @@ pub fn tui_frame(m: TuiModel, tick: Int, pg: CellGrid) -> String {
     b = b + c6 + "┌──────────────────────────────────────────────────────────────────────┐" + r0 + eol;
     b = b + c6 + "│           Oosaver Settings — 16-Bit Arcade Screensaver            │" + r0 + eol;
     b = b + c6 + "└──────────────────────────────────────────────────────────────────────┘" + r0 + eol;
-    let d_col: String = if m.daemon_active { tui_csi("1;32m") + "Active (Monitoring Idle)" + r0 } else { tui_csi("1;33m") + "Standby (Stay-Awake ON)" + r0 };
-    b = b + "  Daemon: " + d_col + " │ Inhibitors: " + tui_csi("1m") + m.inhibitor_desc + r0 + " " + c2 + "([T] Standby)" + r0 + eol + eol;
+    let d_col: String = if m.daemon_active { tui_csi("1;32m") + "Active (Monitoring Idle)" + r0 }
+        else { tui_csi("1;33m") + "Standby (Stay-Awake ON)" + r0 };
+    b = b + "  Daemon: " + d_col + " │ Inhibitors: " + tui_csi("1m") + m.inhibitor_desc + r0 +
+        " " + c2 + "([T] Standby)" + r0 + eol + eol;
     let s_hdr: String = if m.focused == 0 { tui_csi("1;33m") } else { tui_csi("1m") };
     b = b + s_hdr + "[1] Active Screensaver / Arcade Scene (" + (m.selected_saver + 1).to_string() + "/56):" + r0 + eol;
     let s_disp: String = tui_fit_str(tui_saver_display(m.selected_saver), 44);
-    if m.focused == 0 { b = b + "   " + tui_csi("7;1;36m") + " [ ◄  " + s_disp + "  ► ] " + r0 + "  " + c2 + "(←/→ or [/])" + r0 + eol + eol; }
+    if m.focused == 0 {
+        b = b + "   " + tui_csi("7;1;36m") + " [ ◄  " + s_disp + "  ► ] " + r0 + "  " + c2 +
+            "(←/→ or [/])" + r0 + eol + eol;
+    }
     else { b = b + "    [ ◄  " + c6 + s_disp + r0 + "  ► ]   " + c2 + "(←/→ or [/])" + r0 + eol + eol; }
     b = b + tui_csi("1m") + "[2] Banner Text Mode (Space/Enter or 1-2 to select):" + r0 + eol;
     let r1: String = if m.use_os_brand { "(●)" } else { "( )" };
@@ -145,7 +153,8 @@ pub fn tui_frame(m: TuiModel, tick: Int, pg: CellGrid) -> String {
     b = b + tui_button_bar(m.focused);
     let dirty_tag: String = if m.dirty { tui_csi("1;33m") + "[Modified]" + r0 + " " } else { "" };
     b = b + "  Status: " + dirty_tag + m.status_msg + " | " + tui_summary(m) + eol;
-    b = b + "  " + c2 + "Keys: [↑↓/jk] Nav  [←→/hl] Adjust  [S] Save  [P] Term  [F] Fullscreen  [T] Standby  [Q] Quit" + r0 + eol;
+    b = b + "  " + c2 + "Keys: [↑↓/jk] Nav  [←→/hl] Adjust  [S] Save  [P] Term  [F] Fullscreen  [T] Standby" +
+        "  [Q] Quit" + r0 + eol;
     b = b + tui_render_mini_preview(m, tick, pg);
     b = b + tui_csi("?2026l");
     return b;

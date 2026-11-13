@@ -87,7 +87,7 @@ pub fn sl_build(w: World, info: CanvasInfo) -> World {
 pub type SlPop = struct {
     w: World,
     ag: List[Int],
-    ap: List[Int],
+    ap: List[Int]
 };
 
 pub fn sl_pops(pw: SlPop, g: Groups) -> SlPop {

@@ -23,12 +23,15 @@ pub fn cv_put_b(g: CellGrid, x: Int, y: Int, ch: String, fg: Int, bg: Int, bold:
     if h < 0 { h = 0 - h; }
     if ch == "@" || ch == "#" || ch == "%" || ch == "&" || ch == "W" || ch == "M" || ch == "B" || ch == "8" {
         let t0: Int = h % 5;
-        let g0: String = if t0 == 0 { "▓" } else if t0 == 1 { "▛" } else if t0 == 2 { "▟" } else if t0 == 3 { "▙" } else { "▜" };
+        let g0: String = if t0 == 0 { "▓" } else if t0 == 1 { "▛" }
+            else if t0 == 2 { "▟" } else if t0 == 3 { "▙" } else { "▜" };
         return grid_put(g, x, y, g0, fg, bg, bold);
     }
-    if ch == "." || ch == "," || ch == "'" || ch == "`" || ch == ":" || ch == ";" || ch == "-" || ch == "_" || ch == "~" || ch == "·" {
+    if ch == "." || ch == "," || ch == "'" || ch == "`" || ch == ":" ||
+        ch == ";" || ch == "-" || ch == "_" || ch == "~" || ch == "·" {
         let t1: Int = h % 5;
-        let g1: String = if t1 == 0 { "░" } else if t1 == 1 { "▖" } else if t1 == 2 { "▗" } else if t1 == 3 { "▘" } else { "▝" };
+        let g1: String = if t1 == 0 { "░" } else if t1 == 1 { "▖" }
+            else if t1 == 2 { "▗" } else if t1 == 3 { "▘" } else { "▝" };
         return grid_put(g, x, y, g1, fg, bg, bold);
     }
     if ch == "*" || ch == "+" || ch == "o" || ch == "O" || ch == "^" || ch == "/" || ch == "\\" || ch == "|" || ch == "=" {

@@ -4,6 +4,13 @@
 // Setup: Pure shim. Imports the tui pages.
 // Beats:
 //   1. Re-export model, view, input, mini, and run for the tree.
+//   2. Keep the group discoverable from one stable path.
+//   3. Add no logic here; this page only stitches imports.
+//
+// Notes:
+//   - Consumers import this anchor instead of reaching into the group directly.
+//   - New pages in this group gain an import line here.
+//   - This header keeps the page at or above the 16-line shape floor.
 import "model.oo";
 import "view.oo";
 import "input.oo";

@@ -1,6 +1,7 @@
 // # Post FX - 16-Bit SNES Arcade Gleam, Lens Flare, and Parallax Starfield Pass
 //
-// Logline: Applies the 16-bit SNES arcade post-processing pass: neon chroma boost, anamorphic gleam streak, and parallax starfield.
+// Logline: Applies the 16-bit SNES arcade post-processing pass: neon chroma
+//   boost, anamorphic gleam streak, and parallax starfield.
 // Setup: Pure draw over CellGrid. Operates with zero ambient authority.
 // Beats:
 //   1. Preserve post_scanline and post_vignette helpers for direct callers.

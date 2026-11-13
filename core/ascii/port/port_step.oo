@@ -51,9 +51,9 @@ pub fn port_eng_step(st: PortState) -> PortState {
     if n == "thunderstorm" { s.thunderstorm = thunderstorm_eng_step(st.thunderstorm, st.info); }
     if n == "unstable" { s.unstable = unstable_eng_step(st.unstable, st.info); }
     if n == "beams" { s.beams = beams_eng_step(st.beams, st.info); }
-    if n == "blackhole" { s.blackhole = blackhole_eng_step(st.blackhole, st.info); }
+    if n == "blackhole" { s.blackhole = bhole_eng_step(st.blackhole, st.info); }
     if n == "bouncyballs" { s.bouncyballs = bouncyballs_eng_step(st.bouncyballs, st.info); }
-    if n == "binarypath" { s.binarypath = binarypath_eng_step(st.binarypath, st.info); }
+    if n == "binarypath" { s.binarypath = bpath_eng_step(st.binarypath, st.info); }
     if n == "burn" { s.burn = burn_eng_step(st.burn, st.info); }
     if n == "crumble" { s.crumble = crumble_eng_step(st.crumble, st.info); }
     if n == "decrypt" { s.decrypt = decrypt_eng_step(st.decrypt, st.info); }

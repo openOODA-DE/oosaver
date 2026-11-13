@@ -19,7 +19,7 @@ import "core/ascii/eng/engine/gradient_map.oo";
 import "core/ascii/eng/engine/rng_xoshiro.oo";
 import "vhstape/scene_vhstape.oo";
 import "vhstape/vh_build.oo";
-import "vhstape/vh_sim.oo";
+
 import "vhstape/vh_geom.oo";
 import "vhstape/vh_step.oo";
 
@@ -47,7 +47,10 @@ pub fn vhstape_eng_new(cells: List[CellGeom], info: CanvasInfo,
     }
     let mut redraw: List[Int] = list_new();
     let mut r: Int = 0;
-    while r < list_len(g.keys) { redraw = list_push(redraw, r); r = r + 1; }
+    while r < list_len(g.keys) {
+        redraw = list_push(redraw, r);
+        r = r + 1;
+    }
     let s: VhS = VhS { w: w, g: g, top: 0 - 1, wave: list_new(),
         gl: list_new(), steps: 0, phase: 0, redraw: redraw, redrawing: 0 };
     return VhEng { s: s, ids: ids, pcs: list_new(), emit: 0, fin: 0 };

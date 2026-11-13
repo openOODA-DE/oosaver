@@ -2,7 +2,8 @@
 //
 // Logline: Bit-exact port of Aurora::next_frame for the parity harness.
 //
-// Setup: Built over canvas_cells geometry + math_paint shared helpers. frame counts 1..=64; frame 64 settles text cells to bevel colors.
+// Setup: Built over canvas_cells geometry + math_paint shared helpers.
+//   frame counts 1..=64; frame 64 settles text cells to bevel colors.
 //
 // Beats:
 //   1. aurora_new builds the 60-step palette and 3-stop final spectrum.

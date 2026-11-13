@@ -1,7 +1,8 @@
 // # Daemon Reactor - Event Loop on the Unix Control Socket
 //
 // Logline: The event loop: block in unix accept, dispatch one frame, fold Wayland idle events, start/stop the presenter.
-// Setup: Requires BindCap with FsWriteCap to bind the control socket, FsCap for socket IO, ProcessCap for the ticker and presenter, TimeCap for backoff.
+// Setup: Requires BindCap with FsWriteCap to bind the control socket, FsCap for
+//   socket IO, ProcessCap for the ticker and presenter, TimeCap for backoff.
 // Beats:
 //   1. Create the runtime dir and bind $XDG_RUNTIME_DIR/<prog>/control.sock (runtime chmods it 0600).
 //   2. Arm ext-idle-notify-v1 and spawn the tick process that wakes accept so idle events fold in.
@@ -27,21 +28,25 @@ pub fn daemon_serve_conn(fs:&FsCap, fw:&FsWriteCap, d: DaemonState, inh: List[St
     let frame: String = match rd { Ok(s) => s, Err(_) => "" };
     let reply: CtlReply = ctl_dispatch(d, inh, frame, prog);
     let _w: Int = unix_socket_write(fs, conn, reply.text + "\n");
-    let _c: Int = unix_socket_close_connection(fs, fw, conn);
+    let _c: Int = unix_socket_close_connection(fs, conn);
     return reply;
 }
 
 fn presenter_start(fs_r: &FsReadCap, proc: &ProcessCap, prog: String, scene: String) -> Int {
     let rtd: String = runtime_dir(fs_r, proc);
     let mut wl: String = host_env_fs(fs_r, proc, "WAYLAND_DISPLAY");
-    if wl == "" { wl = shell_out(proc, "for s in " + shell_quote(rtd) + "/wayland-*; do [ -S \"$s\" ] && basename \"$s\" && break; done"); }
+    if wl == "" {
+        wl = shell_out(proc, "for s in " + shell_quote(rtd) +
+            "/wayland-*; do [ -S \"$s\" ] && basename \"$s\" && break; done");
+    }
     let xd: String = host_env_fs(fs_r, proc, "DISPLAY");
     if wl == "" && xd == "" { return -1; }
     let dbus: String = host_env_fs(fs_r, proc, "DBUS_SESSION_BUS_ADDRESS");
     let self_path: String = sys_argv0(proc);
     if self_path == "" { return -1; }
     let inner: String = shell_quote(self_path) + " preview " + shell_quote(scene);
-    let pre: String = "export XDG_RUNTIME_DIR=" + shell_quote(rtd) + " WAYLAND_DISPLAY=" + shell_quote(wl) + " DISPLAY=" + shell_quote(xd) + " DBUS_SESSION_BUS_ADDRESS=" + shell_quote(dbus) + "; ";
+    let pre: String = "export XDG_RUNTIME_DIR=" + shell_quote(rtd) + " WAYLAND_DISPLAY=" + shell_quote(wl)
+        + " DISPLAY=" + shell_quote(xd) + " DBUS_SESSION_BUS_ADDRESS=" + shell_quote(dbus) + "; ";
     // Byte literals spell the interpreter and flag tokens so no command text appears inline (oohat scanner).
     let shb: List[Int] = bytes_push(bytes_push(bytes_push(bytes_push(bytes_push(bytes_push(
         bytes_new(), 115), 104), 32), 45), 99), 32);
@@ -95,7 +100,8 @@ pub fn daemon_reactor(fs_r:&FsReadCap, proc:&ProcessCap, bind:&BindCap, fs:&FsCa
             println(prog + ": ext-idle-notify-v1 armed timeout=" + d.timeout_s.to_string() + "s");
             let self_path: String = sys_argv0(proc);
             if self_path != "" {
-                let _t: String = shell_out(proc, "setsid -f " + shell_quote(self_path) + " __tick </dev/null >/dev/null 2>&1; echo ok");
+                let _t: String = shell_out(proc, "setsid -f " + shell_quote(self_path) +
+                    " __tick </dev/null >/dev/null 2>&1; echo ok");
             }
         } else {
             println(prog + ": idle-notify unavailable (no compositor support), control-only mode");

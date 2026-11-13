@@ -1,6 +1,7 @@
 // # Wordmark Renderer - 3-Tier Progressive Bevelled Banner onto the Cell Grid
 //
-// Logline: Rasterizes OS/custom wordmark banners with 3-tier scaling (22-row SuperFedora, scaled 5x5, 3x3) and 16-bit SNES bevel + gleam.
+// Logline: Rasterizes OS/custom wordmark banners with 3-tier scaling (22-row
+//   SuperFedora, scaled 5x5, 3x3) and 16-bit SNES bevel + gleam.
 // Setup: Pure draw over CellGrid using the 5x5, 3x3, and SuperFedora font atlases. Zero ambient authority.
 // Beats:
 //   1. Select the progressive layout tier (SuperFedora 22-row, scaled 5x5, 1x 5x5, or 3x3 condensed) for the grid dimensions.

@@ -106,7 +106,9 @@ pub fn ctl_dispatch(d: DaemonState, inh: List[String], frame: String, prog: Stri
         }
         return CtlReply { text: "ERR unknown scene " + arg, state: d, inhibitors: inh, quit: false };
     }
-    if verb == "quit" || verb == "shutdown" { return CtlReply { text: "bye", state: daemon_state_stop(d), inhibitors: inh, quit: true }; }
+    if verb == "quit" || verb == "shutdown" {
+        return CtlReply { text: "bye", state: daemon_state_stop(d), inhibitors: inh, quit: true };
+    }
     if verb == "sleep" {
         let nd: DaemonState = ctl_next(d, d.saver_on, true, d.scene_idx, d.inhibitors);
         return CtlReply { text: "sleep requested", state: nd, inhibitors: inh, quit: false };

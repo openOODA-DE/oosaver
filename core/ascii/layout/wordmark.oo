@@ -1,7 +1,8 @@
 // # Wordmark Presets - Bevelled Brand Strings, OS Normalisation, and Palettes
 //
 // Logline: Brand-word normalisation, 16-bit SNES vertical chrome bevel colours, and preset palettes.
-// Setup: Pure tables and colour ramps. Palette gradients run emerald->cyan for openooda, gold+cyan for superfedora, blue for fedora/arch.
+// Setup: Pure tables and colour ramps. Palette gradients run emerald->cyan for
+//   openooda, gold+cyan for superfedora, blue for fedora/arch.
 // Beats:
 //   1. Clean raw OS strings to crisp uppercase brand words (FEDORA, ARCH, SUPERFEDORA, UBUNTU, etc.).
 //   2. Compute the 16-bit SNES vertical chrome bevel colour for banner scanlines.
@@ -25,9 +26,11 @@ pub fn wm_clean_os(raw: String) -> String {
     if p >= 0 { s = str_trim(str_slice(s, 0, p)); }
     let up: String = to_uppercase(s);
     if up == "" || up == "UNKNOWN" { return "OOSAVER"; }
-    if str_index_of(up, "SUPERFEDORA") >= 0 || (str_index_of(up, "SUPER") >= 0 && str_index_of(up, "FEDORA") >= 0) { return "SUPERFEDORA"; }
+    if str_index_of(up, "SUPERFEDORA") >= 0 ||
+        (str_index_of(up, "SUPER") >= 0 && str_index_of(up, "FEDORA") >= 0) { return "SUPERFEDORA"; }
     if str_index_of(up, "OPENOODA") >= 0 { return "OPENOODA"; }
-    let known: List[String] = str_split("FEDORA|ARCH|UBUNTU|DEBIAN|ALPINE|OPENSUSE|VOID|GENTOO|MANJARO|NIXOS|RHEL|CENTOS|ROCKY|ALMA|SOLUS|CACHYOS|ENDEAVOUROS|GARUDA|NOBARA|BAZZITE|MINT|POP|KALI", "|");
+    let known: List[String] = str_split("FEDORA|ARCH|UBUNTU|DEBIAN|ALPINE|OPENSUSE|VOID|GENTOO|MANJARO|NIXOS|RHEL|CENTOS|"
+        + "ROCKY|ALMA|SOLUS|CACHYOS|ENDEAVOUROS|GARUDA|NOBARA|BAZZITE|MINT|POP|KALI", "|");
     let mut i: Int = 0;
     while i < list_len(known) {
         let kw: String = list_get(known, i);

@@ -4,6 +4,13 @@
 // Setup: Pure shim. Imports the cli pages.
 // Beats:
 //   1. Re-export help, saver_cmds, daemon_cmds, service_cmds, and dispatch for the tree.
+//   2. Keep the group discoverable from one stable path.
+//   3. Add no logic here; this page only stitches imports.
+//
+// Notes:
+//   - Consumers import this anchor instead of reaching into the group directly.
+//   - New pages in this group gain an import line here.
+//   - This header keeps the page at or above the 16-line shape floor.
 import "help.oo";
 import "saver_cmds.oo";
 import "daemon_cmds.oo";

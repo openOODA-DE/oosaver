@@ -74,7 +74,7 @@ pub fn ov_copies(w: World, g: Groups) -> OvB {
     return _r1;
 }
 
-pub fn ov_build(w: World, info: CanvasInfo) -> OvB {
+pub fn of_build(w: World, info: CanvasInfo) -> OvB {
     let fstops: List[Int] = list_push(list_push(list_push(list_new(), 9044106), 53759), 16777215);
     let fspec: List[Int] = gradient_new(fstops, list_push(list_new(), 12), 0);
     let cmap: List[Int] = cmap_v(fspec, info.tb, info.tt);
@@ -173,7 +173,7 @@ pub fn ov_burst(w: World, pend: List[OvRow], act: List[OvRow], spec: List[Int]) 
 }
 
 pub fn overflow_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
-    let b: OvB = ov_build(w_input(info, lines, rng_seed(42)), info);
+    let b: OvB = of_build(w_input(info, lines, rng_seed(42)), info);
     let mut w: World = b.w;
     let mut pend: List[OvRow] = b.rows;
     let mut act: List[OvRow] = list_new();

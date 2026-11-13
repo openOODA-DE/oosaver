@@ -9,7 +9,6 @@
 
 import "core/ascii/eng/canvas_cells.oo";
 import "core/ascii/eng/grid_cells.oo";
-import "core/ascii/eng/kernel/world_ops.oo";
 import "core/ascii/eng/kernel/engine_tick.oo";
 import "core/ascii/eng/kernel/engine_render.oo";
 import "core/ascii/eng/engapi/input_arena.oo";
@@ -18,7 +17,6 @@ import "core/ascii/eng/engine/rng_xoshiro.oo";
 import "bhole/scene_blackhole.oo";
 import "bhole/bh_state.oo";
 import "bhole/bh_build.oo";
-import "bhole/bh_phase.oo";
 
 pub type BhEng = struct { s: Bh, fmap: List[Int], pcs: List[PaintCell],
     emit: Int, fin: Int };

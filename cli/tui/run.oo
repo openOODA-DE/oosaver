@@ -1,7 +1,8 @@
 // # TUI Run - Settings Director Event Loop
 //
 // Logline: Event loop managing terminal raw mode, config persistence, and user navigation for the Settings Director.
-// Setup: Requires ProcessCap for OS detection and config write, EnvCap for config dir, FfiCap for terminal control, and TimeCap for frame timing.
+// Setup: Requires ProcessCap for OS detection and config write, EnvCap for
+//   config dir, FfiCap for terminal control, and TimeCap for frame timing.
 // Beats:
 //   1. Enter terminal raw mode and alternate screen buffer.
 //   2. Load persistent config and detect system environment.

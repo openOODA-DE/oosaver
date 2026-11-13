@@ -27,7 +27,7 @@ pub fn ctl_roundtrip(
     let conn: UnixConnection = match c { Ok(v) => v, Err(_) => UnixConnection { slot: -1, path: path, is_open: false } };
     let _w: Int = unix_socket_write(fs, conn, frame + "\n");
     let rd: Result[String, String] = unix_socket_read_timeout(fs, conn, 2000, 4096);
-    let _x: Int = unix_socket_close_connection(fs, fw, conn);
+    let _x: Int = unix_socket_close_connection(fs, conn);
     if rd.is_err() { return Err("no reply"); }
     return Ok(match rd { Ok(s) => s, Err(_) => "" });
 }
@@ -126,7 +126,8 @@ pub fn ooidle_persona_run(fs_r:&FsReadCap, fs_w:&FsWriteCap, fs:&FsCap, proc:&Pr
     }
     if verb == "--help" || verb == "help" || verb == "-h" {
         println("ooidle 5.0.3 — idle daemon persona");
-        println("usage: ooidle [run|status|inhibitors|start|stop|toggle|quit|inhibit NAME|uninhibit NAME|scene NAME|sleep|about]");
+        println("usage: ooidle [run|status|inhibitors|start|stop|toggle|quit|inhibit NAME|"
+            + "uninhibit NAME|scene NAME|sleep|about]");
         return 0;
     }
     if verb == "about" {

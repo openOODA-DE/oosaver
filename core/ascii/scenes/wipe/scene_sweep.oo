@@ -117,7 +117,7 @@ pub fn sw_add(w: World, g: Groups, gi: Int, phase: Int) -> World {
     return w2;
 }
 
-pub fn sw_build(w: World, info: CanvasInfo) -> World {
+pub fn se_build(w: World, info: CanvasInfo) -> World {
     let spec: List[Int] = gradient_new(sw_stops(), list_push(list_new(), 8), 0);
     let cmap: List[Int] = cmap_v(spec, info.tb, info.tt);
     let grays: List[Int] = sw_grays();
@@ -134,7 +134,7 @@ pub fn sw_build(w: World, info: CanvasInfo) -> World {
 
 pub fn sweep_run(cells: List[CellGeom], info: CanvasInfo, lines: List[String]) -> DigestRun {
     let mut w: World = w_input(info, lines, rng_seed(42));
-    w = sw_build(w, info);
+    w = se_build(w, info);
     let ids7: List[Int] = collect_ids(w, 7);
     let mut g: Groups = groups_of(w, ids7, 0, 0, 0, 1);
     let g2: Groups = groups_of(w, ids7, 0, 0, 0, 0);

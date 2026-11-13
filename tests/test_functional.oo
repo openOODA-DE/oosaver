@@ -23,6 +23,21 @@ import "core/daemon/control.oo";
 import "core/daemon/config_file.oo";
 import "core/shell.oo";
 import "core/environ.oo";
+import "cli/service/service_unit.oo";
+import "core/ascii/eng/canvas_cells.oo";
+import "core/ascii/eng/engapi/input_arena.oo";
+import "core/ascii/eng/engine/rng_xoshiro.oo";
+import "core/ascii/scenes/laseretch/le_build.oo";
+
+fn test_service_unit() -> Int {
+    let u: String = service_unit_content("/usr/bin/oosaver");
+    let mut fails: Int = 0;
+    fails = fails + probe("unit ReadWritePaths single line",
+        str_contains(u, "idle -%h/.local/state -%h/.local/state/oosaver"));
+    fails = fails + probe("unit has no stray continuation lines",
+        !str_contains(u, "\n-%h/"));
+    return fails;
+}
 
 fn probe(name: String, ok: Bool) -> Int {
     if ok {
@@ -31,6 +46,24 @@ fn probe(name: String, ok: Bool) -> Int {
     }
     println("FAIL " + name);
     return 1;
+}
+
+fn test_laseretch_wide_banner() -> Int {
+    let mut wide: String = "";
+    let mut i: Int = 0;
+    while i < 79 {
+        wide = wide + "X";
+        i = i + 1;
+    }
+    let mut lines: List[String] = list_new();
+    lines = list_push(lines, wide);
+    let info: CanvasInfo = art_block(lines, canvas_info(40, 12));
+    let el: List[String] = list_new();
+    let w0: World = w_input(info, el, rng_seed(1));
+    let w: World = le_scenes(w0, info);
+    let grid: List[Int] = le_grid(w);
+    let lo: LeOrder = le_pending(w, grid, info);
+    return probe("laseretch wide banner order", list_len(lo.order) > 0);
 }
 
 fn test_ctl_and_config() -> Int {
@@ -42,12 +75,16 @@ fn test_ctl_and_config() -> Int {
     fails = fails + probe("ctl unknown fails closed", str_starts_with(rep2.text, "ERR"));
     let idx_mat: Int = effects_index("matrix");
     fails = fails + probe("ctl scene", ctl_dispatch(st, list_new(), "scene matrix", "oosaver").state.scene_idx == idx_mat);
-    fails = fails + probe("ctl set saver name", ctl_dispatch(st, list_new(), "set plasma", "oosaver").state.saver_name == "plasma");
+    fails = fails + probe("ctl set saver name",
+        ctl_dispatch(st, list_new(), "set plasma", "oosaver").state.saver_name == "plasma");
     let idx_pl: Int = effects_index("plasma");
-    fails = fails + probe("ctl set moves scene", ctl_dispatch(st, list_new(), "set plasma", "oosaver").state.scene_idx == idx_pl);
-    fails = fails + probe("ctl set rejects empty name", str_starts_with(ctl_dispatch(st, list_new(), "set", "oosaver").text, "ERR"));
+    fails = fails + probe("ctl set moves scene",
+        ctl_dispatch(st, list_new(), "set plasma", "oosaver").state.scene_idx == idx_pl);
+    fails = fails + probe("ctl set rejects empty name",
+        str_starts_with(ctl_dispatch(st, list_new(), "set", "oosaver").text, "ERR"));
     fails = fails + probe("ctl timeout retunes", ctl_dispatch(st, list_new(), "timeout 600", "oosaver").state.timeout_s == 600);
-    fails = fails + probe("ctl timeout rejects empty", str_starts_with(ctl_dispatch(st, list_new(), "timeout", "oosaver").text, "ERR"));
+    fails = fails + probe("ctl timeout rejects empty",
+        str_starts_with(ctl_dispatch(st, list_new(), "timeout", "oosaver").text, "ERR"));
     fails = fails + probe("ctl ping answers PONG", ctl_dispatch(st, list_new(), "ping", "oosaver").text == "PONG");
     fails = fails + probe("cv ramp", cv_ramp(0) == " " && cv_ramp(9) == "█");
     let cfg: ConfigData = config_default();
@@ -115,6 +152,8 @@ pub fn main(argv: List[String]) -> Result[Int, String] {
     fails = fails + probe("inhibit remove", list_len(inh2) == 1 && list_get(inh2, 0) == "video");
     fails = fails + probe("inhibit json", inhibit_json(inh2) == "[\"video\"]");
     fails = fails + test_ctl_and_config();
+    fails = fails + test_service_unit();
+    fails = fails + test_laseretch_wide_banner();
     if fails == 0 { println("PASS: all assertions"); }
     return Ok(fails);
 }

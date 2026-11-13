@@ -18,7 +18,7 @@ import "core/ascii/eng/kernel/world_ops.oo";
 import "core/ascii/eng/kernel/engine_ops.oo";
 import "core/ascii/eng/kernel/engine_tick.oo";
 import "core/ascii/eng/kernel/engine_render.oo";
-import "core/ascii/eng/kernel/engine_core.oo";
+
 import "core/ascii/eng/engapi/input_arena.oo";
 import "core/ascii/eng/engapi/char_ops.oo";
 import "core/ascii/eng/engapi/char_groups.oo";

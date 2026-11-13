@@ -21,7 +21,8 @@ pub fn shell_quote(s: String) -> String {
 // discarded here: a failing probe must yield "", never its own error text
 // (which callers would otherwise mistake for a returned value).
 pub fn shell_out(proc: &ProcessCap, cmd: String) -> String {
-    let pre: String = "export HOME=\"${HOME:-$(getent passwd $(id -u) 2>/dev/null | cut -d: -f6)}\"; export XDG_RUNTIME_DIR=\"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}\"; ";
+    let pre: String = "export HOME=\"${HOME:-$(getent passwd $(id -u) 2>/dev/null | cut -d: -f6)}\"; "
+        + "export XDG_RUNTIME_DIR=\"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}\"; ";
     // Byte literals spell the interpreter and flag tokens so no command text appears inline (oohat scanner).
     let shb: List[Int] = bytes_push(bytes_push(bytes_new(), 115), 104);
     let cob: List[Int] = bytes_push(bytes_push(bytes_new(), 45), 99);

@@ -1,7 +1,9 @@
 // # Daemon Config - File and Environment Resolution
 //
-// Logline: Resolves the daemon's scene, timeout, banner wordmark, control endpoint, and format from the config file then environment overrides.
-// Setup: Requires EnvCap for XDG_CONFIG_HOME, HOME, and the OOSAVER_* overrides, plus ProcessCap to read config.toml and /etc/os-release.
+// Logline: Resolves the daemon's scene, timeout, banner wordmark, control
+//   endpoint, and format from the config file then environment overrides.
+// Setup: Requires EnvCap for XDG_CONFIG_HOME, HOME, and the OOSAVER_*
+//   overrides, plus ProcessCap to read config.toml and /etc/os-release.
 // Beats:
 //   1. Read the persistent config.toml from the resolved config dir.
 //   2. Resolve the active OS or custom banner wordmark from env, config.toml, and /etc/os-release.
@@ -53,7 +55,8 @@ pub fn daemon_banner_text(fs_r: &FsReadCap, proc: &ProcessCap) -> String {
     if !cfg.use_os_brand && str_trim(cfg.custom_text) != "" {
         return to_uppercase(str_trim(cfg.custom_text));
     }
-    let sf_probe: String = shell_out(proc, "(test -e /etc/superfedora/release -o -e /etc/superfedora-release -o -e \"$HOME/.config/superfedora\" || grep -qi superfedora /etc/os-release 2>/dev/null) && echo yes");
+    let sf_probe: String = shell_out(proc, "(test -e /etc/superfedora/release -o -e /etc/superfedora-release"
+        + " -o -e \"$HOME/.config/superfedora\" || grep -qi superfedora /etc/os-release 2>/dev/null) && echo yes");
     if sf_probe == "yes" { return "SUPERFEDORA"; }
     let raw_os: String = shell_out(proc, "grep '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"'");
     if raw_os != "" { return wm_clean_os(raw_os); }

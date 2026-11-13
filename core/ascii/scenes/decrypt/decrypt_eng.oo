@@ -12,11 +12,11 @@
 import "core/ascii/eng/canvas_cells.oo";
 import "core/ascii/eng/grid_cells.oo";
 import "core/ascii/eng/kernel/world_ops.oo";
-import "core/ascii/eng/kernel/engine_ops.oo";
+
 import "core/ascii/eng/kernel/engine_tick.oo";
 import "core/ascii/eng/kernel/engine_render.oo";
 import "core/ascii/eng/engapi/input_arena.oo";
-import "core/ascii/eng/engapi/char_ops.oo";
+
 import "core/ascii/eng/engine/rng_xoshiro.oo";
 import "core/ascii/eng/engine/rng_helpers.oo";
 import "decrypt/scene_decrypt.oo";

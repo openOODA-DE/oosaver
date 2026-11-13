@@ -53,7 +53,8 @@ fn dispatch_service_ctl(fs_r:&FsReadCap, fs:&FsCap, fw:&FsWriteCap, proc:&Proces
         if res == 0 { return 0; }
         return cmd_service(fs_r, fs, fw, proc, "toggle");
     }
-    if verb == "enable" || verb == "disable" || verb == "restart" || verb == "reload" || verb == "install" || verb == "uninstall" {
+    if verb == "enable" || verb == "disable" || verb == "restart" ||
+        verb == "reload" || verb == "install" || verb == "uninstall" {
         return cmd_service(fs_r, fs, fw, proc, verb);
     }
     if verb == "service" {

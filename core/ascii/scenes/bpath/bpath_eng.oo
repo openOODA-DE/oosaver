@@ -12,11 +12,11 @@
 import "core/ascii/eng/canvas_cells.oo";
 import "core/ascii/eng/grid_cells.oo";
 import "core/ascii/eng/kernel/world_ops.oo";
-import "core/ascii/eng/kernel/engine_ops.oo";
+
 import "core/ascii/eng/kernel/engine_tick.oo";
 import "core/ascii/eng/kernel/engine_render.oo";
 import "core/ascii/eng/engapi/input_arena.oo";
-import "core/ascii/eng/engapi/char_ops.oo";
+
 import "core/ascii/eng/engapi/char_groups.oo";
 import "core/ascii/eng/engine/rng_xoshiro.oo";
 import "bpath/scene_binarypath.oo";
@@ -33,7 +33,10 @@ pub fn bpath_eng_new(cells: List[CellGeom], info: CanvasInfo,
     let g: Groups = groups_of(bs.w, collect_ids(bs.w, 1), 2, 0, 0, 1);
     let mut wq: List[Int] = list_new();
     let mut gi: Int = 0;
-    while gi < list_len(g.keys) { wq = list_push(wq, gi); gi = gi + 1; }
+    while gi < list_len(g.keys) {
+        wq = list_push(wq, gi);
+        gi = gi + 1;
+    }
     return BpEng { w: bs.w, wq: wq, g: g, pend: bs.pend, areps: list_new(),
         bs_max: bs.max, phase: 0, done: 0, pcs: list_new(), emit: 0, fin: 0 };
 }

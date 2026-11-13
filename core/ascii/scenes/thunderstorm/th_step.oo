@@ -26,7 +26,7 @@ import "core/ascii/eng/gradient_spectrum.oo";
 import "core/ascii/eng/canvas_cells.oo";
 import "core/ascii/scenes/thunderstorm/th_state.oo";
 
-pub fn ths(s: ThS, w: World) -> ThS {
+fn ths(s: ThS, w: World) -> ThS {
     let _r0 = ThS { w: w, phase: s.phase, delay: s.delay, spdelay: s.spdelay,
         rain: s.rain, spark: s.spark, pend: s.pend, avail_s: s.avail_s,
         act_s: s.act_s, glow_p: s.glow_p, sgrad: s.sgrad, in_prog: s.in_prog,

@@ -1,7 +1,8 @@
 // # TUI Mini Preview - Live Scene Session Spec and Step
 //
 // Logline: Computes the MiniPreview scene, columns, and wordmark key, then steps one persistent PortSession per TUI frame.
-// Setup: Pure spec over TuiModel plus PortSession threading. The key rebuilds the session only when scene, size, or banner changes.
+// Setup: Pure spec over TuiModel plus PortSession threading. The key rebuilds
+//   the session only when scene, size, or banner changes.
 // Beats:
 //   1. Resolve the preview scene index, column width, and wordmark from the model (wide terminals only).
 //   2. Key the session by name:cols:wm so a spec change rebuilds the tape exactly once.

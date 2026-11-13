@@ -100,11 +100,47 @@ pub fn le_step(w: World, grid: List[Int], b: LeBt, info: CanvasInfo) -> LeBt {
 
 pub fn le_pending(w: World, grid: List[Int], info: CanvasInfo) -> LeOrder {
     let mut r: Rng = w.rng;
-    let dc: DR = rng_int(r, info.tl, info.tr);
+    let mut lo_c: Int = info.tl;
+    if lo_c < 1 { lo_c = 1; }
+    let mut hi_c: Int = info.tr;
+    if hi_c > info.cols { hi_c = info.cols; }
+    if hi_c > 80 { hi_c = 80; }
+    let mut lo_r: Int = info.tb;
+    if lo_r < 1 { lo_r = 1; }
+    let mut hi_r: Int = info.tt;
+    if hi_r > info.rows { hi_r = info.rows; }
+    if hi_r > 24 { hi_r = 24; }
+    if lo_c > hi_c || lo_r > hi_r {
+        return LeOrder { order: list_new(), r: r };
+    }
+    let dc: DR = rng_int(r, lo_c, hi_c);
     r = dc.r;
-    let dr: DR = rng_int(r, info.tb, info.tt);
+    let dr: DR = rng_int(r, lo_r, hi_r);
     r = dr.r;
-    let start: Int = list_get(grid, (dr.v - 1) * 80 + dc.v - 1);
+    let mut start: Int = list_get(grid, (dr.v - 1) * 80 + dc.v - 1);
+    let mut tries: Int = 0;
+    while start < 0 && tries < 64 {
+        let qc: DR = rng_int(r, lo_c, hi_c);
+        r = qc.r;
+        let qr: DR = rng_int(r, lo_r, hi_r);
+        r = qr.r;
+        start = list_get(grid, (qr.v - 1) * 80 + qc.v - 1);
+        tries = tries + 1;
+    }
+    if start < 0 {
+        let mut sr: Int = lo_r;
+        while sr <= hi_r && start < 0 {
+            let mut sc: Int = lo_c;
+            while sc <= hi_c && start < 0 {
+                start = list_get(grid, (sr - 1) * 80 + sc - 1);
+                sc = sc + 1;
+            }
+            sr = sr + 1;
+        }
+    }
+    if start < 0 {
+        return LeOrder { order: list_new(), r: r };
+    }
     let mut linked: List[Int] = list_new();
     let n: Int = list_len(w.chars);
     let mut i: Int = 0;

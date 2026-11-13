@@ -48,15 +48,22 @@ pub fn service_has_systemd(proc: &ProcessCap) -> Bool {
 
 // The hardened systemd user unit. Mirrors assets/oosaver.service.
 pub fn service_unit_content(bin: String) -> String {
-    let mut s: String = "[Unit]\nDescription=Oosaver screensaver daemon\nDocumentation=https://github.com/oosaver/oosaver\nAfter=graphical-session.target\nPartOf=graphical-session.target\n\n";
-    s = s + "[Service]\nType=simple\nSlice=background-graphical.slice\nSyslogIdentifier=oosaver\nStandardOutput=journal\nStandardError=journal\n";
+    let mut s: String = "[Unit]\nDescription=Oosaver screensaver daemon\nDocumentation=https://github.com/oosaver/oosaver\n"
+        + "After=graphical-session.target\nPartOf=graphical-session.target\n\n";
+    s = s + "[Service]\nType=simple\nSlice=background-graphical.slice\n"
+        + "SyslogIdentifier=oosaver\nStandardOutput=journal\nStandardError=journal\n";
     s = s + "ExecStartPre=-" + "/usr/bin" + "/mkdir -p %h/.config/oosaver\nExecStart=" + bin + " daemon\n";
-    s = s + "Environment=OODA_FS_READDIR=%h:/etc:/run/user/%U\nEnvironment=OODA_FS_WRITEDIR=%h/.config/oosaver:/run/user/%U\nEnvironment=OO_HOME=%h\nEnvironment=OO_XDG_CONFIG_HOME=%h/.config\nEnvironment=OO_XDG_RUNTIME_DIR=/run/user/%U\n";
+    s = s + "Environment=OODA_FS_READDIR=%h:/etc:/run/user/%U\nEnvironment=OODA_FS_WRITEDIR=%h/.config/oosaver:/run/user/%U\n"
+        + "Environment=OO_HOME=%h\nEnvironment=OO_XDG_CONFIG_HOME=%h/.config\nEnvironment=OO_XDG_RUNTIME_DIR=/run/user/%U\n";
     s = s + "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=10\nKillMode=mixed\n\n";
     s = s + "NoNewPrivileges=true\nProtectSystem=strict\nPrivateTmp=true\nMemoryDenyWriteExecute=true\n";
-    s = s + "ReadWritePaths=%t -%h/.config -%h/.config/oosaver -%h/.config/idle -%h/.local/state -%h/.local/state/oosaver -%h/.cache -%h/.cache/oosaver\n";
-    s = s + "RestrictAddressFamilies=AF_UNIX AF_INET\nIPAddressAllow=localhost 127.0.0.1\nIPAddressDeny=any\nMemoryMax=512M\nTasksMax=128\n";
-    s = s + "ProtectControlGroups=strict\nSystemCallFilter=@system-service\nRestrictNamespaces=true\nLockPersonality=true\nRestrictRealtime=true\nRestrictSUIDSGID=true\nSystemCallArchitectures=native\n\n";
+    s = s + "ReadWritePaths=%t -%h/.config -%h/.config/oosaver -%h/.config/idle "
+        + "-%h/.local/state -%h/.local/state/oosaver -%h/.cache -%h/.cache/oosaver\n";
+    s = s + "RestrictAddressFamilies=AF_UNIX AF_INET\nIPAddressAllow=localhost 127.0.0.1\n"
+        + "IPAddressDeny=any\nMemoryMax=512M\nTasksMax=128\n";
+    s = s + "ProtectControlGroups=strict\nSystemCallFilter=@system-service\n"
+        + "RestrictNamespaces=true\nLockPersonality=true\nRestrictRealtime=true\n"
+        + "RestrictSUIDSGID=true\nSystemCallArchitectures=native\n\n";
     s = s + "[Install]\nWantedBy=graphical-session.target\n";
     return s;
 }

@@ -1,8 +1,12 @@
 // # scene_emit — deterministic scene digest emitter
 //
-// Logline: Runs a ported scene over the fixed probe grid and prints the same `frame\t<idx>\t<hash>` / `done\t<n>\t<hash>` stream as the Rust scene_digest example, for golden parity comparison.
+// Logline: Runs a ported scene over the fixed probe grid and prints the same
+//   `frame\t<idx>\t<hash>` / `done\t<n>\t<hash>` stream as the Rust
+//   scene_digest example, for golden parity comparison.
 //
-// Setup: Pure compute plus println. argv[1] selects the scene; all other probe parameters are pinned to the golden configuration (80x24, seed 42, 60fps, art "IDLESCREEN\nSCREENSAVER").
+// Setup: Pure compute plus println. argv[1] selects the scene; all other probe
+//   parameters are pinned to the golden configuration (80x24, seed 42, 60fps,
+//   art "IDLESCREEN\nSCREENSAVER").
 //
 // Beats:
 //   1. Split the pinned art into lines and build canvas cells.

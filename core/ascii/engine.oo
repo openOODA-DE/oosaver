@@ -1,7 +1,9 @@
 // # Scene Engine - Frame Pipeline, Tour Scheduling, Wordmark Overlay
 //
 // Logline: The frame pipeline: render the active scene, lay the bevelled OS/custom wordmark banner, post-FX, HUD, and ANSI out.
-// Setup: Pure pipeline over CellGrid. Scene frames come from the 1:1 bit-exact ported engines in tests/oo via PortSession. Output strings are produced; emission is the caller's job.
+// Setup: Pure pipeline over CellGrid. Scene frames come from the 1:1 bit-exact
+//   ported engines in tests/oo via PortSession. Output strings are produced;
+//   emission is the caller's job.
 // Beats:
 //   1. Resolve the scene index from name or tour schedule.
 //   2. Step a PortSession to the tick and composite its PaintCell tape (settled banner, post-FX).

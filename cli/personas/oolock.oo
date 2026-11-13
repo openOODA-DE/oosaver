@@ -1,7 +1,8 @@
 // # oolock Persona - Session Lock Surface
 //
 // Logline: Session-lock persona that drives the oosaver daemon to engage or release the lock screen.
-// Setup: Shares the oosaver control socket; the 51-scene saver doubles as the lock screen. Client-side only unless daemon|run is requested.
+// Setup: Shares the oosaver control socket; the 51-scene saver doubles as the
+//   lock screen. Client-side only unless daemon|run is requested.
 // Beats:
 //   1. lock notifies start on the socket; unlock notifies stop.
 //   2. status and inhibitor verbs proxy the daemon query frames.

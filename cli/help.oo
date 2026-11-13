@@ -43,6 +43,9 @@ pub fn cli_help(prog: String) -> Int {
 }
 
 pub fn cli_json(prog: String) -> Int {
-    println("{\"name\":\"" + prog + "\",\"version\":\"5.0.3\",\"scenes\":51,\"presets\":[\"openooda\",\"superfedora\",\"fedora\",\"arch\"],\"caps\":[\"FsRead\",\"FsWrite\",\"Fs\",\"Process\",\"Bind\",\"Time\",\"Ffi\",\"Arena\",\"Alloc\"],\"status\":\"pass\"}");
+    println("{\"name\":\"" + prog + "\",\"version\":\"5.0.3\",\"scenes\":51,"
+        + "\"presets\":[\"openooda\",\"superfedora\",\"fedora\",\"arch\"],"
+        + "\"caps\":[\"FsRead\",\"FsWrite\",\"Fs\",\"Process\",\"Bind\",\"Time\",\"Ffi\",\"Arena\",\"Alloc\"],"
+        + "\"status\":\"pass\"}");
     return 0;
 }

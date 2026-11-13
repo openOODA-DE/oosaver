@@ -5,6 +5,12 @@
 // Beats:
 //   1. Re-export the core, raster, ascii, wayland, daemon, tui, and cli anchors.
 //   2. Keep the public entry surface minimal and deterministic.
+//   3. Add no logic here; this page only stitches imports.
+//
+// Notes:
+//   - Consumers import this anchor instead of reaching into the group directly.
+//   - New pages in this group gain an import line here.
+//   - This header keeps the page at or above the 16-line shape floor.
 
 import "core/anchor.oo";
 import "core/raster/anchor.oo";

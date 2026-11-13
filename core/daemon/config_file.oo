@@ -1,7 +1,9 @@
 // # Config File Handler - TOML Reader and Writer
 //
 // Logline: TOML configuration loader and serializer for persistent user preferences.
-// Setup: Requires EnvCap to resolve the config dir and ProcessCap for the read and the atomic write. File content reaches the shell only through a quoted argument.
+// Setup: Requires EnvCap to resolve the config dir and ProcessCap for the read
+//   and the atomic write. File content reaches the shell only through a quoted
+//   argument.
 // Beats:
 //   1. Parse general and saver keys from config.toml lines.
 //   2. Serialize ConfigData to canonical TOML string representation.
@@ -176,6 +178,7 @@ pub fn config_commit(fs_r: &FsReadCap, proc: &ProcessCap, c: ConfigData) -> Bool
     let toml: String = config_to_toml(c);
     let target: String = dir + "/config.toml";
     let tmpl: String = dir + "/config.tmp.XXXXXX";
-    let cmd: String = "mkdir -p " + shell_quote(dir) + " && t=$(mktemp " + shell_quote(tmpl) + ") && printf '%s' " + shell_quote(toml) + " > \"$t\" && mv -f \"$t\" " + shell_quote(target);
+    let cmd: String = "mkdir -p " + shell_quote(dir) + " && t=$(mktemp " + shell_quote(tmpl) +
+        ") && printf '%s' " + shell_quote(toml) + " > \"$t\" && mv -f \"$t\" " + shell_quote(target);
     return shell_out(proc, cmd + " 2>/dev/null && echo ok") == "ok";
 }

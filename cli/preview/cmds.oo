@@ -164,8 +164,10 @@ fn preview_interactive(ffi:&FfiCap, time:&TimeCap, name: String, wm: String, tim
         } else {
             engine_wordmark_frame(cols, rows - 1, sc_name, tick)
         };
-        let tit: String = if is_wm { "Preset: " + sc_name } else { "Scene: " + sc_name + " (" + (sc + 1).to_string() + "/51) │ Banner: " + wm };
-        let out_line: String = ansi_home() + frame + "\r\n" + e0 + "[1;36m[" + tit + "] [←/→/n/p: Step  q/Esc/Space: Exit]" + e0 + "[0m" + e0 + "[K";
+        let tit: String = if is_wm { "Preset: " + sc_name } else {
+            "Scene: " + sc_name + " (" + (sc + 1).to_string() + "/51) │ Banner: " + wm };
+        let out_line: String = ansi_home() + frame + "\r\n" + e0 + "[1;36m[" + tit +
+            "] [←/→/n/p: Step  q/Esc/Space: Exit]" + e0 + "[0m" + e0 + "[K";
         let _ = oo_tui_write(ffi, out_line);
         let nsc: Int = preview_poll_key(ffi, sc);
         if nsc < 0 {
@@ -195,7 +197,8 @@ pub fn cmd_preview(fs_r:&FsReadCap, proc:&ProcessCap, ffi:&FfiCap, time:&TimeCap
             has_frames = true;
             i = i + 1;
         }
-        else if a == "--cols" || a == "--rows" || a == "--timeout" || a == "-t" || a == "--text" || a == "--mode" || a == "-m" || a == "--dwell" || a == "-d" { i = i + 1; }
+        else if a == "--cols" || a == "--rows" || a == "--timeout" || a == "-t" ||
+            a == "--text" || a == "--mode" || a == "-m" || a == "--dwell" || a == "-d" { i = i + 1; }
         else if !str_starts_with(a, "-") && !name_set {
             name = to_lowercase(a);
             name_set = true;

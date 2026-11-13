@@ -29,7 +29,11 @@ pub fn scattered_eng_new(cells: List[CellGeom], info: CanvasInfo,
 pub fn scattered_eng_step(s: ScEng, info: CanvasInfo) -> ScEng {
     let mut w: World = s.w;
     let mut hold: Int = s.hold;
-    if hold != 0 { hold = hold - 1; } else { w = eng_update(w); }
+    if hold != 0 {
+        hold = hold - 1;
+    } else {
+        w = eng_update(w);
+    }
     let pcs: List[PaintCell] = eng_render(w, info.cols, info.rows);
     let f: Int = if list_len(w.active) > 0 { 0 } else { 1 };
     return ScEng { w: w, hold: hold, pcs: pcs, emit: 1, fin: f };

@@ -1,8 +1,12 @@
 // # shade_math — neon colors and float helpers
 //
-// Logline: Bit-exact ports of neon_overdrive_rgb and the f64 helpers the math scenes need. oodac 0.11.63 has no `as` numeric casts, so conversions use exact bounded loops instead.
+// Logline: Bit-exact ports of neon_overdrive_rgb and the f64 helpers the math
+//   scenes need. oodac 0.11.63 has no `as` numeric casts, so conversions use
+//   exact bounded loops instead.
 //
-// Setup: Pure functions. Colors are packed 0xRRGGBB into Int. No caps. int_to_f/float_idx are exact for |n| < 4096 (all probe uses qualify). Glyph mapping lives in pixel_glyph.oo.
+// Setup: Pure functions. Colors are packed 0xRRGGBB into Int. No caps.
+//   int_to_f/float_idx are exact for |n| < 4096 (all probe uses qualify).
+//   Glyph mapping lives in pixel_glyph.oo.
 //
 // Beats:
 //   1. neon_rgb boosts a packed color exactly like neon_overdrive_rgb.

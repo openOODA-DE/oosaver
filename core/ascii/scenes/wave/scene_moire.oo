@@ -2,7 +2,8 @@
 //
 // Logline: Bit-exact port of Moire::next_frame for the parity harness.
 //
-// Setup: Built over canvas_cells geometry + math_paint shared helpers. frame counts 1..=64; frame 64 settles text cells to bevel colors.
+// Setup: Built over canvas_cells geometry + math_paint shared helpers.
+//   frame counts 1..=64; frame 64 settles text cells to bevel colors.
 //
 // Beats:
 //   1. moire_new builds the 49-step palette and 3-stop final spectrum.
@@ -55,7 +56,8 @@ pub fn moire_new(cells: List[CellGeom], info: CanvasInfo) -> Moire {
     return _r1;
 }
 
-pub fn moire_cell(m: Moire, c: CellGeom, sin_a: Float, cos_a: Float, sin_b: Float, cos_b: Float, fill_fade: Float) -> PaintCell {
+pub fn moire_cell(m: Moire, c: CellGeom, sin_a: Float, cos_a: Float,
+    sin_b: Float, cos_b: Float, fill_fade: Float) -> PaintCell {
     let ua: Float = c.dx * cos_a + c.dy * sin_a;
     let ub: Float = c.dx * cos_b + c.dy * sin_b;
     let beat: Float = cos(ua * 21.0) * cos(ub * 17.0);
